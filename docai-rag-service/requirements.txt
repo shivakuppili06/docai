@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+langchain
+langchain-community
+langchain-google-genai
+chromadb
+google-generativeai
+pypdf
+pika
+python-multipart
+httpx
+boto3==1.35.36

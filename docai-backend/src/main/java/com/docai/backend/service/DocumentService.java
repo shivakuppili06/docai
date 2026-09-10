@@ -1,0 +1,152 @@
+package com.docai.backend.service;
+
+import com.docai.backend.config.RabbitMQConfig;
+import com.docai.backend.event.DocumentProcessingEvent;
+import com.docai.backend.model.Document;
+import com.docai.backend.repository.DocumentRepository;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class DocumentService {
+
+    private final DocumentRepository documentRepository;
+    private final RabbitTemplate rabbitTemplate;
+    private final S3Client s3Client;
+
+    @org.springframework.beans.factory.annotation.Value("${app.rag-service.base-url}")
+    private String ragServiceBaseUrl;
+
+    @org.springframework.beans.factory.annotation.Value("${app.rag-service.api-key}")
+    private String serviceApiKey;
+
+    @org.springframework.beans.factory.annotation.Value("${aws.s3-bucket}")
+    private String s3Bucket;
+
+    public DocumentService(DocumentRepository documentRepository, RabbitTemplate rabbitTemplate, S3Client s3Client) {
+        this.documentRepository = documentRepository;
+        this.rabbitTemplate = rabbitTemplate;
+        this.s3Client = s3Client;
+    }
+
+    public Document upload(MultipartFile file, Long ownerId) throws IOException {
+        String originalFilename = file.getOriginalFilename();
+        String s3Key = "documents/" + UUID.randomUUID() + "-" + originalFilename;
+
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(s3Bucket)
+                .key(s3Key)
+                .contentType(file.getContentType())
+                .build();
+
+        s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+
+        Document doc = Document.builder()
+                .ownerId(ownerId)
+                .fileName(originalFilename)
+                .storagePath(s3Key)
+                .status(Document.DocumentStatus.PENDING)
+                .build();
+
+        doc = documentRepository.save(doc);
+
+        try {
+            rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.DOCUMENT_PROCESSING_QUEUE,
+                    new DocumentProcessingEvent(doc.getId(), doc.getStoragePath(), ownerId)
+            );
+            doc.setStatus(Document.DocumentStatus.PROCESSING);
+        } catch (Exception e) {
+            System.err.println("RabbitMQ unavailable, falling back to direct RAG /ingest: " + e.getMessage());
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                com.fasterxml.jackson.databind.node.ObjectNode bodyNode = mapper.createObjectNode();
+                bodyNode.put("document_id", doc.getId());
+                bodyNode.put("storage_path", doc.getStoragePath());
+                bodyNode.put("owner_id", ownerId);
+                byte[] jsonBytes = mapper.writeValueAsBytes(bodyNode);
+
+                java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+                        .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                        .build();
+                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                        .uri(java.net.URI.create(ragServiceBaseUrl + "/ingest"))
+                        .header("Content-Type", "application/json")
+                        .header("X-Service-Token", serviceApiKey)
+                        .POST(java.net.http.HttpRequest.BodyPublishers.ofByteArray(jsonBytes))
+                        .build();
+                java.net.http.HttpResponse<String> response = httpClient.send(request,
+                        java.net.http.HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                    doc.setStatus(Document.DocumentStatus.INDEXED);
+                } else {
+                    System.err.println("RAG /ingest returned " + response.statusCode() + ": " + response.body());
+                    doc.setStatus(Document.DocumentStatus.FAILED);
+                }
+            } catch (Exception ex) {
+                System.err.println("Direct RAG ingestion failed: " + ex.getMessage());
+                doc.setStatus(Document.DocumentStatus.FAILED);
+            }
+        }
+        return documentRepository.save(doc);
+    }
+
+    public List<Document> listForUser(Long ownerId) {
+        return documentRepository.findByOwnerId(ownerId);
+    }
+
+    public Document updateStatus(Long documentId, Document.DocumentStatus status) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
+        doc.setStatus(status);
+        return documentRepository.save(doc);
+    }
+
+    public void delete(Long documentId, Long ownerId) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
+                
+        if (!doc.getOwnerId().equals(ownerId)) {
+            throw new SecurityException("Not authorized to delete this document");
+        }
+
+        // 1. Delete S3 object
+        try {
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                    .bucket(s3Bucket)
+                    .key(doc.getStoragePath())
+                    .build();
+            s3Client.deleteObject(deleteObjectRequest);
+        } catch (Exception e) {
+            System.err.println("Failed to delete S3 object: " + e.getMessage());
+        }
+
+        // 2. Delete vectors from RAG service via HTTP
+        try {
+            java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+                    .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                    .build();
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(ragServiceBaseUrl + "/documents/" + documentId))
+                    .header("X-Service-Token", serviceApiKey)
+                    .DELETE()
+                    .build();
+            httpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+        } catch (Exception e) {
+            System.err.println("Failed to delete vectors from RAG service: " + e.getMessage());
+        }
+
+        // 3. Delete from Postgres (cascades to ChatMessage)
+        documentRepository.delete(doc);
+    }
+}

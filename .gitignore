@@ -1,0 +1,13 @@
+.env
+**/.env
+*.env
+uploaded-documents/
+chroma_store/
+target/
+node_modules/
+dist/
+__pycache__/
+*.pyc
+*.class
+.idea/
+*.iml
