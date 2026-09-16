@@ -1,6 +1,7 @@
 import json
 import logging
 
+import time
 import pika
 import httpx
 
@@ -14,9 +15,6 @@ logger = logging.getLogger("worker")
 def report_status(document_id: int, status: str):
     """
     Calls back into the Spring Boot backend to update Document.status.
-    NOTE: requires a corresponding PATCH /api/documents/{id}/status endpoint
-    on the Spring side — add one (internal/service-to-service call, not
-    exposed to end users) if it doesn't exist yet.
     """
     try:
         url = f"{settings.spring_backend_base_url}/api/documents/{document_id}/status"
@@ -44,16 +42,37 @@ def handle_message(ch, method, properties, body):
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
-def main():
-    credentials = pika.PlainCredentials(settings.rabbitmq_user, settings.rabbitmq_password)
+def connect_with_retry(max_retries=10, delay_seconds=3):
+    credentials = pika.PlainCredentials(
+        settings.rabbitmq_user, settings.rabbitmq_password
+    )
     parameters = pika.ConnectionParameters(
         host=settings.rabbitmq_host,
         port=settings.rabbitmq_port,
         credentials=credentials,
     )
+    for attempt in range(1, max_retries + 1):
+        try:
+            connection = pika.BlockingConnection(parameters)
+            logger.info(f"Connected to RabbitMQ on attempt {attempt}")
+            return connection
+        except pika.exceptions.AMQPConnectionError as e:
+            logger.warning(
+                f"RabbitMQ connection attempt {attempt}/{max_retries} "
+                f"failed, retrying in {delay_seconds}s..."
+            )
+            time.sleep(delay_seconds)
+    logger.error("RabbitMQ unavailable after all retries — worker exiting")
+    return None
+
+
+def main():
+    connection = connect_with_retry()
+    if not connection:
+        logger.warning("RabbitMQ unavailable, relying on HTTP fallback. Worker terminating.")
+        return
 
     try:
-        connection = pika.BlockingConnection(parameters)
         channel = connection.channel()
         channel.queue_declare(queue=settings.document_queue_name, durable=True)
         channel.basic_qos(prefetch_count=1)
@@ -62,7 +81,7 @@ def main():
         logger.info(f"Worker listening on '{settings.document_queue_name}'...")
         channel.start_consuming()
     except pika.exceptions.AMQPConnectionError as e:
-        logger.warning(f"RabbitMQ unavailable, relying on HTTP fallback. Error: {e}")
+        logger.warning(f"RabbitMQ connection lost. Error: {e}")
 
 
 if __name__ == "__main__":

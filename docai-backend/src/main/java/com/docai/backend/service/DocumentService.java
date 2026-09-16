@@ -120,7 +120,6 @@ public class DocumentService {
             throw new SecurityException("Not authorized to delete this document");
         }
 
-        // 1. Delete S3 object
         try {
             DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
                     .bucket(s3Bucket)
@@ -131,7 +130,6 @@ public class DocumentService {
             System.err.println("Failed to delete S3 object: " + e.getMessage());
         }
 
-        // 2. Delete vectors from RAG service via HTTP
         try {
             java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
                     .version(java.net.http.HttpClient.Version.HTTP_1_1)
@@ -146,7 +144,6 @@ public class DocumentService {
             System.err.println("Failed to delete vectors from RAG service: " + e.getMessage());
         }
 
-        // 3. Delete from Postgres (cascades to ChatMessage)
         documentRepository.delete(doc);
     }
 }

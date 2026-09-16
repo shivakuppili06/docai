@@ -1,20 +1,6 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: docai-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: docai
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d docai"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
@@ -47,10 +33,11 @@ services:
       context: ./docai-backend
     container_name: docai-backend
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: docai
-      DB_USER: postgres
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-docaidb}
+      DB_USER: ${DB_USER}
+      NEON_ENDPOINT: ${NEON_ENDPOINT}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
@@ -59,12 +46,15 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET}
+      SERVICE_API_KEY: ${SERVICE_API_KEY}
       RAG_SERVICE_URL: http://docai-rag-api:8000
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
     ports:
       - "8080:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       redis:
@@ -77,13 +67,20 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      SERVICE_API_KEY: ${SERVICE_API_KEY}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       SPRING_BACKEND_URL: http://docai-backend:8080
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
     ports:
       - "8000:8000"
+    volumes:
+      - chroma_data:/app/chroma_store
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -97,11 +94,18 @@ services:
     command: python -m app.worker
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      SERVICE_API_KEY: ${SERVICE_API_KEY}
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: guest
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       SPRING_BACKEND_URL: http://docai-backend:8080
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+    volumes:
+      - chroma_data:/app/chroma_store
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -119,3 +123,5 @@ services:
     depends_on:
       - docai-backend
 
+volumes:
+  chroma_data:

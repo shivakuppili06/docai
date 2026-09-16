@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findByOwnerId(Long ownerId);
+    java.util.Optional<Document> findByIdAndOwnerId(Long id, Long ownerId);
 }

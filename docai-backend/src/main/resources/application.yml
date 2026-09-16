@@ -6,14 +6,11 @@ spring:
     name: docai-backend
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:docaidb}?sslmode=require&options=endpoint%3D${NEON_ENDPOINT:ep-green-flower-b3vwgr4h-pooler}
-    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.postgresql.Driver}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:neondb}?sslmode=require&channel_binding=require}
+    driver-class-name: org.postgresql.Driver
     username: ${DB_USER:sa}
     password: ${DB_PASSWORD:}
 
-  h2:
-    console:
-      enabled: true
 
   jpa:
     hibernate:
@@ -22,6 +19,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}

@@ -66,14 +66,14 @@ def ingest_document(document_id: int, storage_path: str) -> int:
     suffix = ".pdf" if s3_key.lower().endswith(".pdf") else ".txt"
     
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
-        temp_local_path = tmp_file.name
+        local_file_path = tmp_file.name
 
     try:
-        s3_client.download_file(settings.s3_bucket, s3_key, temp_local_path)
-        text = _extract_text(temp_local_path)
+        s3_client.download_file(settings.s3_bucket, s3_key, local_file_path)
+        text = _extract_text(local_file_path)
     finally:
-        if os.path.exists(temp_local_path):
-            os.remove(temp_local_path)
+        if os.path.exists(local_file_path):
+            os.remove(local_file_path)
 
     if not text.strip():
         raise ValueError("Extracted text is empty — unsupported or scanned file?")
