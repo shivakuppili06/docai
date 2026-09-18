@@ -1,268 +1,206 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { documentApi } from "../api/client";
-import { useToast } from "../context/ToastContext";
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
-import StatCard from "../components/StatCard";
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { documentApi } from '../api/client';
+import { useToast } from '../components/ui/Toast';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
+import { Skeleton } from '../components/ui/Skeleton';
+import { Modal } from '../components/ui/Modal';
+import { UploadCloud, FileText, ArrowRight, Loader2 } from 'lucide-react';
 
-export default function Dashboard() {
-  useDocumentTitle("Dashboard");
+const Dashboard = () => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [isDragActive, setIsDragActive] = useState(false);
   
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("ALL");
-  
-  const pollRef = useRef(null);
+  const { toast } = useToast();
   const navigate = useNavigate();
-  const toast = useToast();
 
-  const fetchDocuments = async (showLoading = false) => {
-    if (showLoading) setLoading(true);
+  const fetchDocuments = async () => {
     try {
-      const { data } = await documentApi.list();
-      setDocuments(data);
-    } catch {
-      // Suppress polling errors
+      const res = await documentApi.list();
+      setDocuments(res.data);
+    } catch (err) {
+      toast('Failed to load documents', 'error');
     } finally {
-      if (showLoading) setLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDocuments(true);
-    pollRef.current = setInterval(() => fetchDocuments(false), 3000);
-    return () => clearInterval(pollRef.current);
+    fetchDocuments();
+    
+    // Auto refresh while there are pending/processing docs
+    const interval = setInterval(() => {
+      setDocuments(current => {
+        const hasProcessing = current.some(d => d.status === 'PENDING' || d.status === 'PROCESSING');
+        if (hasProcessing) fetchDocuments();
+        return current;
+      });
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleUpload = async (file) => {
+  const handleUpload = async (e) => {
+    e.preventDefault();
     if (!file) return;
+    
     setUploading(true);
     setUploadProgress(0);
+    
     try {
       await documentApi.upload(file, (progressEvent) => {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
         setUploadProgress(percentCompleted);
       });
-      toast.success("Document uploaded successfully!");
-      await fetchDocuments();
-    } catch {
-      toast.error("Upload failed. Please try again.");
+      toast('Document uploaded successfully. Indexing started.', 'success');
+      setUploadModalOpen(false);
+      setFile(null);
+      fetchDocuments();
+    } catch (err) {
+      toast(err.response?.data?.error || 'Upload failed', 'error');
     } finally {
       setUploading(false);
-      setUploadProgress(0);
     }
   };
 
-  const handleDelete = async (e, id) => {
-    e.stopPropagation();
-    if (!window.confirm("Delete this document? Chat history will be lost.")) return;
-    
-    try {
-      await documentApi.delete(id);
-      toast.success("Document deleted");
-      fetchDocuments();
-    } catch {
-      toast.error("Failed to delete document");
-    }
-  };
-
-  const handleFileChange = (e) => {
-    handleUpload(e.target.files[0]);
-    e.target.value = "";
-  };
-
-  const onDragOver = useCallback((e) => {
-    e.preventDefault();
-    setIsDragActive(true);
-  }, []);
-
-  const onDragLeave = useCallback((e) => {
-    e.preventDefault();
-    setIsDragActive(false);
-  }, []);
-
-  const onDrop = useCallback((e) => {
-    e.preventDefault();
-    setIsDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleUpload(e.dataTransfer.files[0]);
-    }
-  }, []);
-
-  const getStatusBadge = (status) => {
-    const s = status.toLowerCase();
-    if (s === "processing" || s === "pending") {
-      return (
-        <span className={`badge ${s}`}>
-          <span className="spinner-mini"></span> {status}
-        </span>
-      );
-    }
-    return <span className={`badge ${s}`}>{status}</span>;
-  };
-
-  const filteredDocs = documents.filter(doc => {
-    const matchesSearch = doc.fileName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterStatus === "ALL" || doc.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
-
-  const totalDocs = documents.length;
-  const indexedDocs = documents.filter(d => d.status === "INDEXED").length;
-  const processingDocs = documents.filter(d => d.status === "PROCESSING" || d.status === "PENDING").length;
+  const totalCount = documents.length;
+  const indexedCount = documents.filter(d => d.status === 'INDEXED').length;
+  const processingCount = documents.filter(d => d.status === 'PENDING' || d.status === 'PROCESSING').length;
+  const recentDocs = documents.slice(0, 5);
 
   return (
-    <div className="fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <h1 className="gradient-text" style={{ fontSize: '2.2rem', fontWeight: '700' }}>Dashboard</h1>
-      </div>
-
-      <div className="stats-grid">
-        <StatCard 
-          label="Total Documents" 
-          value={totalDocs} 
-          icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>} 
-        />
-        <StatCard 
-          label="Indexed & Ready" 
-          value={indexedDocs} 
-          color="var(--status-indexed)"
-          icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>} 
-        />
-        <StatCard 
-          label="Processing" 
-          value={processingDocs} 
-          color="var(--status-processing)"
-          icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>} 
-        />
-      </div>
-
-      <label 
-        className={`upload-label ${uploading ? 'disabled' : ''} ${isDragActive ? 'drag-active' : ''}`}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-      >
-        {uploading ? (
-          <div style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
-            <p style={{ marginBottom: '12px' }}>Uploading & Processing... {uploadProgress}%</p>
-            <div style={{ height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', background: 'var(--primary)', width: `${uploadProgress}%`, transition: 'width 0.3s' }}></div>
-            </div>
-          </div>
-        ) : (
-          <div className="upload-prompt">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 3 7 8"></polyline>
-              <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-            <div style={{ fontSize: '1.1rem', fontWeight: '500' }}>Click to upload or drag and drop</div>
-            <span style={{ fontSize: '0.85rem' }}>PDF or TXT up to 10MB</span>
-          </div>
-        )}
-        <input type="file" accept=".pdf,.txt" onChange={handleFileChange} disabled={uploading} hidden />
-      </label>
-
-      <div className="dashboard-toolbar">
-        <div className="filter-group">
-          {['ALL', 'INDEXED', 'FAILED'].map(status => (
-            <button 
-              key={status} 
-              className={`filter-btn ${filterStatus === status ? 'active' : ''}`}
-              onClick={() => setFilterStatus(status)}
-            >
-              {status.charAt(0) + status.slice(1).toLowerCase()}
-            </button>
-          ))}
+    <div className="flex flex-col gap-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 style={{ fontSize: '1.875rem', fontWeight: '700' }}>Dashboard</h1>
+          <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>Welcome back. Here is an overview of your documents.</p>
         </div>
-        <input 
-          type="text" 
-          className="search-input" 
-          placeholder="Search files by name..." 
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <Button onClick={() => setUploadModalOpen(true)} className="flex items-center gap-2">
+          <UploadCloud size={18} /> Upload Document
+        </Button>
       </div>
 
-      <div className="doc-grid">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <h3 style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Total Documents</h3>
+          <div style={{ fontSize: '2.5rem', fontWeight: '700', marginTop: '0.5rem', color: 'var(--color-primary)' }}>
+            {loading ? <Skeleton width="60px" height="40px" /> : totalCount}
+          </div>
+        </div>
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <h3 style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Indexed Ready</h3>
+          <div style={{ fontSize: '2.5rem', fontWeight: '700', marginTop: '0.5rem', color: 'var(--color-success)' }}>
+            {loading ? <Skeleton width="60px" height="40px" /> : indexedCount}
+          </div>
+        </div>
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <h3 style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Processing</h3>
+          <div style={{ fontSize: '2.5rem', fontWeight: '700', marginTop: '0.5rem', color: 'var(--color-warning)' }}>
+            {loading ? <Skeleton width="60px" height="40px" /> : processingCount}
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: '1.5rem' }}>
+        <div className="flex justify-between items-center" style={{ marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: '600' }}>Recent Documents</h2>
+          <Link to="/documents" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: '500' }}>
+            View All <ArrowRight size={16} />
+          </Link>
+        </div>
+
         {loading ? (
-          // Skeleton Loaders
-          [1, 2, 3].map(i => (
-            <div key={i} className="doc-card">
-              <div className="skeleton" style={{ height: '24px', width: '60%' }}></div>
-              <div className="skeleton" style={{ height: '16px', width: '40%', marginTop: 'auto' }}></div>
-            </div>
-          ))
-        ) : filteredDocs.length === 0 ? (
-          <div className="empty-state glass-panel fade-in">
-            <svg className="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="9" y1="3" x2="9" y2="21"></line>
-            </svg>
-            <h3>No documents found</h3>
-            <p>Upload a file or change your filters to see results.</p>
+          <div className="flex flex-col gap-3">
+            {[1, 2, 3].map(i => <Skeleton key={i} height="60px" />)}
+          </div>
+        ) : recentDocs.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', color: 'var(--color-text-secondary)' }}>
+            <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+            <p style={{ fontWeight: '500', marginBottom: '1rem' }}>No documents uploaded yet</p>
+            <Button onClick={() => setUploadModalOpen(true)}>Upload your first document</Button>
           </div>
         ) : (
-          filteredDocs.map((doc) => {
-            const isReady = doc.status === "INDEXED";
-            const isPdf = doc.fileName.toLowerCase().endsWith(".pdf");
-            const date = new Date(doc.uploadedAt).toLocaleDateString();
-
-            return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {recentDocs.map(doc => (
               <div 
                 key={doc.id} 
-                className={`doc-card ${isReady ? 'ready' : ''} fade-in`}
-                onClick={() => isReady && navigate(`/chat/${doc.id}`)}
+                onClick={() => navigate(`/documents/${doc.id}`)}
+                style={{ 
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                  padding: '1rem', border: 'var(--border-thin)', borderRadius: 'var(--radius-md)',
+                  cursor: 'pointer', transition: 'background-color var(--transition-fast)'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bg)'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
-                <div className="doc-card-header">
-                  <div className={`file-icon ${isPdf ? 'file-pdf' : 'file-txt'}`}>
-                    {isPdf ? "PDF" : "TXT"}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ padding: '0.5rem', backgroundColor: 'var(--color-info-bg)', color: 'var(--color-primary)', borderRadius: 'var(--radius-sm)' }}>
+                    <FileText size={20} />
                   </div>
-                  <button 
-                    className="btn-delete" 
-                    title="Delete Document"
-                    onClick={(e) => handleDelete(e, doc.id)}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="3 6 5 6 21 6"></polyline>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                  </button>
+                  <div>
+                    <h4 style={{ fontWeight: '600' }}>{doc.fileName}</h4>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>
+                      {new Date(doc.uploadedAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-                
-                <h3 className="doc-name" title={doc.fileName}>{doc.fileName}</h3>
-                
-                <div className="doc-meta">
-                  <span>{date}</span>
-                </div>
-                
-                {/* Advanced Processing Tracker */}
-                {(doc.status === "PROCESSING" || doc.status === "PENDING") ? (
-                  <div className="status-tracker">
-                    <div className="status-step completed">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                      Uploading
-                    </div>
-                    <div className="status-step active">
-                      <span className="spinner-mini"></span>
-                      Extracting text & Indexing
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ marginTop: 'auto' }}>
-                    {getStatusBadge(doc.status)}
-                  </div>
-                )}
+                <Badge status={doc.status}>{doc.status}</Badge>
               </div>
-            );
-          })
+            ))}
+          </div>
         )}
       </div>
+
+      <Modal isOpen={uploadModalOpen} onClose={() => { if (!uploading) setUploadModalOpen(false); }} title="Upload Document">
+        {!uploading ? (
+          <form onSubmit={handleUpload}>
+            <div 
+              style={{ 
+                border: '2px dashed var(--color-border)', borderRadius: 'var(--radius-md)', padding: '3rem', 
+                textAlign: 'center', backgroundColor: 'var(--color-bg)', marginBottom: '1.5rem',
+                display: 'flex', flexDirection: 'column', alignItems: 'center'
+              }}
+            >
+              <UploadCloud size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }} />
+              <p style={{ fontWeight: '500', marginBottom: '1rem' }}>Drag & drop your PDF here or click to browse</p>
+              <input 
+                type="file" 
+                accept=".pdf" 
+                onChange={(e) => setFile(e.target.files[0])} 
+                style={{ display: 'block', margin: '0 auto', cursor: 'pointer' }}
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="ghost" onClick={() => setUploadModalOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={!file}>Upload File</Button>
+            </div>
+          </form>
+        ) : uploadProgress < 100 ? (
+          <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+            <h3 style={{ fontWeight: '600', marginBottom: '1rem' }}>Uploading...</h3>
+            <div style={{ height: '8px', backgroundColor: 'var(--color-border)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${uploadProgress}%`, backgroundColor: 'var(--color-primary)', transition: 'width 0.2s' }} />
+            </div>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '1rem' }}>{uploadProgress}% completed</p>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '2rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Loader2 className="animate-spin" size={40} style={{ color: 'var(--color-primary)', marginBottom: '1.5rem', animation: 'spin 1s linear infinite' }} />
+            <h3 style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Processing & Indexing...</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>This may take a few moments. You can close this window.</p>
+            <style>{`
+              @keyframes spin { 100% { transform: rotate(360deg); } }
+            `}</style>
+          </div>
+        )}
+      </Modal>
     </div>
   );
-}
+};
+
+export default Dashboard;

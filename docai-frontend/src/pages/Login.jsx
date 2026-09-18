@@ -1,91 +1,107 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { authApi } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/ui/Toast';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Eye, EyeOff, LogIn } from 'lucide-react';
 
-export default function Login() {
-  useDocumentTitle("Login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
   const { login } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
-  const toast = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
+    
     try {
-      await login(email, password);
-      toast.success("Welcome back!");
-      navigate("/dashboard");
-    } catch {
-      toast.error("Invalid email or password.");
+      const res = await authApi.login({ email, password });
+      login(res.data.token);
+      toast('Login successful', 'success');
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to login');
+      toast('Login failed', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-page fade-in">
-      <div className="auth-form glass-panel">
-        <h2>Welcome Back</h2>
-        <p className="subtitle">Sign in to your DocAI workspace</p>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <input 
-              type="email" 
-              placeholder="Email address" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)} 
-              required 
-              disabled={loading}
-            />
+    <div className="container flex justify-center items-center" style={{ minHeight: '80vh' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{ 
+            width: '48px', height: '48px', backgroundColor: 'var(--color-info-bg)', 
+            color: 'var(--color-primary)', borderRadius: 'var(--radius-lg)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem'
+          }}>
+            <LogIn size={24} />
           </div>
-          <div className="input-group password-group" style={{ position: 'relative' }}>
-            <input 
-              type={showPassword ? "text" : "password"} 
-              placeholder="Password" 
-              value={password}
+          <h1 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Welcome back</h1>
+          <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>Enter your credentials to continue</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Input 
+            label="Email" 
+            type="email" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            required 
+            placeholder="you@example.com"
+          />
+          
+          <div style={{ position: 'relative' }}>
+            <Input 
+              label="Password" 
+              type={showPassword ? 'text' : 'password'} 
+              value={password} 
               onChange={(e) => setPassword(e.target.value)} 
               required 
-              disabled={loading}
-              style={{ paddingRight: '40px' }}
+              placeholder="••••••••"
             />
             <button 
-              type="button" 
-              className="btn-icon" 
+              type="button"
               onClick={() => setShowPassword(!showPassword)}
-              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)' }}
-              title={showPassword ? "Hide Password" : "Show Password"}
+              style={{
+                position: 'absolute', right: '0.75rem', top: '2.1rem',
+                background: 'none', border: 'none', color: 'var(--color-text-secondary)'
+              }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {showPassword ? (
-                  <>
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                    <line x1="1" y1="1" x2="23" y2="23"></line>
-                  </>
-                ) : (
-                  <>
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </>
-                )}
-              </svg>
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? <span className="spinner-mini"></span> : "Sign In"}
-          </button>
+
+          {error && (
+            <div style={{ 
+              padding: '0.75rem', backgroundColor: 'var(--color-danger-bg)', 
+              color: 'var(--color-danger-text)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' 
+            }}>
+              {error}
+            </div>
+          )}
+
+          <Button type="submit" isLoading={loading} style={{ width: '100%', marginTop: '0.5rem' }}>
+            Sign In
+          </Button>
         </form>
-        
-        <div className="auth-footer">
-          Don't have an account? <Link to="/register">Create one</Link>
-        </div>
+
+        <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+          Don't have an account? <Link to="/register" style={{ fontWeight: '500' }}>Sign up</Link>
+        </p>
       </div>
     </div>
   );
-}
+};
+
+export default Login;

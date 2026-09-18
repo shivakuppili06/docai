@@ -1,128 +1,160 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
-import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { authApi } from '../api/client';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/ui/Toast';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Eye, EyeOff, UserPlus } from 'lucide-react';
 
-export default function Register() {
-  useDocumentTitle("Register");
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+const Register = () => {
+  const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   
-  const { register } = useAuth();
+  const { login } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
-  const toast = useToast();
 
+  // Basic heuristic
   const getPasswordStrength = () => {
-    let score = 0;
-    if (!password) return { label: "", color: "transparent" };
-    if (password.length >= 8) score += 1;
-    if (/[A-Z]/.test(password)) score += 1;
-    if (/[0-9]/.test(password)) score += 1;
-    if (/[^A-Za-z0-9]/.test(password)) score += 1;
-    
-    if (score < 2) return { label: "Weak", color: "var(--danger)" };
-    if (score < 4) return { label: "Good", color: "var(--status-pending)" };
-    return { label: "Strong", color: "var(--success)" };
+    if (!password) return 0;
+    let strength = 0;
+    if (password.length > 5) strength += 33;
+    if (/[A-Z]/.test(password)) strength += 33;
+    if (/[0-9]/.test(password)) strength += 34;
+    return strength;
   };
 
   const strength = getPasswordStrength();
+  const strengthColor = strength < 40 ? 'var(--color-danger)' : strength < 80 ? 'var(--color-warning)' : 'var(--color-success)';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+    setError('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
+
     setLoading(true);
+    
     try {
-      await register(email, password, fullName);
-      toast.success("Account created successfully!");
-      navigate("/dashboard");
+      await authApi.register({ email, password, fullName });
+      // login automatically after registration
+      const res = await authApi.login({ email, password });
+      login(res.data.token);
+      toast('Registration successful!', 'success');
+      navigate('/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.message || "Registration failed.");
+      setError(err.response?.data?.error || 'Failed to register');
+      toast('Registration failed', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-page fade-in">
-      <div className="auth-form glass-panel">
-        <h2>Create Account</h2>
-        <p className="subtitle">Join DocAI to start chatting with your documents</p>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <input 
-              type="text" 
-              placeholder="Full name" 
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)} 
-              required 
-              disabled={loading}
-            />
+    <div className="container flex justify-center items-center" style={{ minHeight: '80vh', padding: '2rem 0' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{ 
+            width: '48px', height: '48px', backgroundColor: 'var(--color-info-bg)', 
+            color: 'var(--color-primary)', borderRadius: 'var(--radius-lg)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem'
+          }}>
+            <UserPlus size={24} />
           </div>
-          <div className="input-group">
-            <input 
-              type="email" 
-              placeholder="Email address" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)} 
-              required 
-              disabled={loading}
-            />
-          </div>
-          <div className="input-group password-group" style={{ position: 'relative' }}>
-            <input 
-              type={showPassword ? "text" : "password"} 
-              placeholder="Password (min 8 chars)" 
-              value={password}
+          <h1 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Create an account</h1>
+          <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.5rem' }}>Join DocAI today</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Input 
+            label="Full Name" 
+            value={fullName} 
+            onChange={(e) => setFullName(e.target.value)} 
+            required 
+            placeholder="John Doe"
+          />
+
+          <Input 
+            label="Email" 
+            type="email" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            required 
+            placeholder="you@example.com"
+          />
+          
+          <div style={{ position: 'relative' }}>
+            <Input 
+              label="Password" 
+              type={showPassword ? 'text' : 'password'} 
+              value={password} 
               onChange={(e) => setPassword(e.target.value)} 
               required 
-              disabled={loading}
-              style={{ paddingRight: '40px' }}
+              placeholder="••••••••"
             />
             <button 
-              type="button" 
-              className="btn-icon" 
+              type="button"
               onClick={() => setShowPassword(!showPassword)}
-              style={{ position: 'absolute', right: '10px', top: '16px' }}
-              title={showPassword ? "Hide Password" : "Show Password"}
+              style={{
+                position: 'absolute', right: '0.75rem', top: '2.1rem',
+                background: 'none', border: 'none', color: 'var(--color-text-secondary)'
+              }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {showPassword ? (
-                  <>
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                    <line x1="1" y1="1" x2="23" y2="23"></line>
-                  </>
-                ) : (
-                  <>
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </>
-                )}
-              </svg>
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
             {password && (
-              <div style={{ marginTop: '8px', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Password strength:</span>
-                <span style={{ color: strength.color, fontWeight: 600 }}>{strength.label}</span>
+              <div style={{ marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginBottom: '0.25rem' }}>
+                  <span>Password strength</span>
+                  <span style={{ color: strengthColor, fontWeight: '500' }}>
+                    {strength < 40 ? 'Weak' : strength < 80 ? 'Fair' : 'Strong'}
+                  </span>
+                </div>
+                <div style={{ height: '4px', backgroundColor: 'var(--color-border)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ width: `${strength}%`, height: '100%', backgroundColor: strengthColor, transition: 'all 0.3s' }} />
+                </div>
               </div>
             )}
           </div>
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? <span className="spinner-mini"></span> : "Sign Up"}
-          </button>
+
+          <Input 
+            label="Confirm Password" 
+            type={showPassword ? 'text' : 'password'} 
+            value={confirmPassword} 
+            onChange={(e) => setConfirmPassword(e.target.value)} 
+            required 
+            placeholder="••••••••"
+          />
+
+          {error && (
+            <div style={{ 
+              padding: '0.75rem', backgroundColor: 'var(--color-danger-bg)', 
+              color: 'var(--color-danger-text)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' 
+            }}>
+              {error}
+            </div>
+          )}
+
+          <Button type="submit" isLoading={loading} style={{ width: '100%', marginTop: '0.5rem' }}>
+            Sign Up
+          </Button>
         </form>
-        
-        <div className="auth-footer">
-          Already have an account? <Link to="/login">Log in</Link>
-        </div>
+
+        <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
+          Already have an account? <Link to="/login" style={{ fontWeight: '500' }}>Sign in</Link>
+        </p>
       </div>
     </div>
   );
-}
+};
+
+export default Register;
