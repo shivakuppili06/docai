@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { documentApi } from '../api/client';
 import { useToast } from '../components/ui/Toast';
 import { Skeleton } from '../components/ui/Skeleton';
-import { PieChart, BarChart2, TrendingUp, AlertCircle } from 'lucide-react';
+import { PieChart, BarChart2, TrendingUp, AlertCircle, FileText, CheckCircle, Clock, XCircle } from 'lucide-react';
 
 const Analytics = () => {
   const [stats, setStats] = useState(null);
@@ -31,72 +31,100 @@ const Analytics = () => {
   }, [toast]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 style={{ fontSize: '1.875rem', fontWeight: '700' }}>Analytics</h1>
-        <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>Insights and performance metrics for your workspace.</p>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-        <div className="card" style={{ padding: '1.5rem' }}>
-          <h3 style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Total Docs</h3>
-          <div style={{ fontSize: '2rem', fontWeight: '700', marginTop: '0.5rem' }}>
-            {loading ? <Skeleton width="60px" /> : stats?.total}
-          </div>
-        </div>
-        <div className="card" style={{ padding: '1.5rem' }}>
-          <h3 style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Indexed Success Rate</h3>
-          <div style={{ fontSize: '2rem', fontWeight: '700', marginTop: '0.5rem', color: 'var(--color-success)' }}>
-            {loading ? <Skeleton width="60px" /> : stats?.total === 0 ? '0%' : `${Math.round((stats?.indexed / stats?.total) * 100)}%`}
-          </div>
-        </div>
-        <div className="card" style={{ padding: '1.5rem' }}>
-          <h3 style={{ fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>Failed Indexing</h3>
-          <div style={{ fontSize: '2rem', fontWeight: '700', marginTop: '0.5rem', color: 'var(--color-danger)' }}>
-            {loading ? <Skeleton width="60px" /> : stats?.failed}
-          </div>
+    <div className="fade-in">
+      <div className="dashboard-toolbar">
+        <div>
+          <h1 className="page-title">Workspace Overview</h1>
+          <p className="page-subtitle">Real-time status of your document processing pipeline.</p>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
-        {/* Placeholder for Usage Chart */}
-        <div className="card" style={{ padding: '1.5rem', minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={20} style={{ color: 'var(--color-primary)' }} />
-            <h3 style={{ fontWeight: '600' }}>Query Volume</h3>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#f1f5f9', color: 'var(--text-muted)' }}>
+            <FileText size={24} />
           </div>
-          <div style={{ flex: 1, backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--color-border)' }}>
-            <AlertCircle size={32} style={{ color: 'var(--color-text-muted)', marginBottom: '0.5rem' }} />
-            <p style={{ fontWeight: '500', color: 'var(--color-text-secondary)' }}>Advanced metrics coming soon</p>
-            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>Requires backend analytics API</p>
+          <div className="stat-content">
+            <span className="stat-label">Total Documents</span>
+            <span className="stat-value">{loading ? '-' : stats?.total}</span>
           </div>
         </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#dcfce7', color: '#10b981' }}>
+            <CheckCircle size={24} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">Indexed Successfully</span>
+            <span className="stat-value" style={{ color: '#15803d' }}>
+              {loading ? '-' : stats?.indexed}
+            </span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: '#fee2e2', color: '#ef4444' }}>
+            <XCircle size={24} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">Failed Indexing</span>
+            <span className="stat-value" style={{ color: '#b91c1c' }}>
+              {loading ? '-' : stats?.failed}
+            </span>
+          </div>
+        </div>
+      </div>
 
-        {/* Placeholder for Document Types Chart */}
-        <div className="card" style={{ padding: '1.5rem', minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
-          <div className="flex items-center gap-2 mb-4">
-            <PieChart size={20} style={{ color: 'var(--color-primary)' }} />
-            <h3 style={{ fontWeight: '600' }}>Document Status Breakdown</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px', marginTop: '16px' }}>
+        
+        <div className="table-container" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+            <PieChart size={20} style={{ color: 'var(--primary)' }} />
+            <h3 className="section-title" style={{ marginBottom: 0 }}>Document Status Breakdown</h3>
           </div>
           {loading ? (
-             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Skeleton width="200px" height="200px" borderRadius="50%" /></div>
+             <div style={{ padding: '40px 0', display: 'flex', justifyContent: 'center' }}>
+               <Skeleton width="100%" height="160px" />
+             </div>
           ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem' }}>
-              <div className="flex justify-between items-center" style={{ padding: '0.75rem', backgroundColor: 'var(--color-success-bg)', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ fontWeight: '500', color: 'var(--color-success-text)' }}>Indexed</span>
-                <span style={{ fontWeight: '700', color: 'var(--color-success-text)' }}>{stats?.indexed}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', borderLeft: '4px solid #10b981' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <CheckCircle size={18} style={{ color: '#10b981' }} />
+                  <span style={{ fontWeight: '500', color: 'var(--text-main)' }}>Indexed & Ready</span>
+                </div>
+                <span style={{ fontWeight: '700', fontSize: '18px', color: '#15803d' }}>{stats?.indexed}</span>
               </div>
-              <div className="flex justify-between items-center" style={{ padding: '0.75rem', backgroundColor: 'var(--color-warning-bg)', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ fontWeight: '500', color: 'var(--color-warning-text)' }}>Processing</span>
-                <span style={{ fontWeight: '700', color: 'var(--color-warning-text)' }}>{stats?.processing}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <Clock size={18} style={{ color: '#f59e0b' }} />
+                  <span style={{ fontWeight: '500', color: 'var(--text-main)' }}>Currently Processing</span>
+                </div>
+                <span style={{ fontWeight: '700', fontSize: '18px', color: '#b45309' }}>{stats?.processing}</span>
               </div>
-              <div className="flex justify-between items-center" style={{ padding: '0.75rem', backgroundColor: 'var(--color-danger-bg)', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ fontWeight: '500', color: 'var(--color-danger-text)' }}>Failed</span>
-                <span style={{ fontWeight: '700', color: 'var(--color-danger-text)' }}>{stats?.failed}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', borderLeft: '4px solid #ef4444' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <XCircle size={18} style={{ color: '#ef4444' }} />
+                  <span style={{ fontWeight: '500', color: 'var(--text-main)' }}>Failed or Error</span>
+                </div>
+                <span style={{ fontWeight: '700', fontSize: '18px', color: '#b91c1c' }}>{stats?.failed}</span>
               </div>
             </div>
           )}
         </div>
+
+        <div className="table-container" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+            <TrendingUp size={20} style={{ color: 'var(--primary)' }} />
+            <h3 className="section-title" style={{ marginBottom: 0 }}>System Usage</h3>
+          </div>
+          <div style={{ flex: 1, backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border-color)', minHeight: '200px' }}>
+            <AlertCircle size={32} style={{ color: '#cbd5e1', marginBottom: '12px' }} />
+            <p style={{ fontWeight: '500', color: 'var(--text-main)' }}>Advanced analytics not available</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px', textAlign: 'center', maxWidth: '80%' }}>
+              Detailed query volume and usage charts require additional backend API support that is not currently implemented.
+            </p>
+          </div>
+        </div>
+
       </div>
     </div>
   );

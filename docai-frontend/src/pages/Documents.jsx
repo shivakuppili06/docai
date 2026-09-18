@@ -2,16 +2,17 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { documentApi } from '../api/client';
 import { useToast } from '../components/ui/Toast';
-import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
-import { Input } from '../components/ui/Input';
-import { Skeleton } from '../components/ui/Skeleton';
-import { FileText, Search, Trash2, MessageSquare } from 'lucide-react';
+import { Modal } from '../components/ui/Modal';
+import { FileText, Search, Trash2, MessageSquare, Loader2 } from 'lucide-react';
 
 const Documents = () => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState(null);
   
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -37,58 +38,67 @@ const Documents = () => {
     return documents.filter(d => d.fileName.toLowerCase().includes(lowerSearch));
   }, [documents, search]);
 
-  const handleDelete = async (e, id) => {
+  const confirmDelete = (e, doc) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this document?')) return;
+    setDocumentToDelete(doc);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!documentToDelete) return;
     try {
-      await documentApi.delete(id);
-      toast('Document deleted', 'success');
-      setDocuments(documents.filter(d => d.id !== id));
+      await documentApi.delete(documentToDelete.id);
+      toast('Document deleted successfully', 'success');
+      setDocuments(documents.filter(d => d.id !== documentToDelete.id));
     } catch (err) {
       toast('Failed to delete', 'error');
+    } finally {
+      setDeleteModalOpen(false);
+      setDocumentToDelete(null);
     }
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex justify-between items-center">
+    <div className="fade-in">
+      <div className="dashboard-toolbar">
         <div>
-          <h1 style={{ fontSize: '1.875rem', fontWeight: '700' }}>Documents</h1>
-          <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>Manage and search through all your uploaded files.</p>
+          <h1 className="page-title">Documents</h1>
+          <p className="page-subtitle">Manage and search through all your uploaded files.</p>
         </div>
-      </div>
-
-      <div className="card" style={{ padding: '1.5rem' }}>
-        <div style={{ marginBottom: '1.5rem', position: 'relative', maxWidth: '400px' }}>
-          <div style={{ position: 'absolute', left: '0.75rem', top: '0.8rem', color: 'var(--color-text-secondary)' }}>
-            <Search size={18} />
-          </div>
-          <Input 
+        <div className="search-wrapper">
+          <Search className="search-icon" />
+          <input 
+            type="text"
+            className="search-input"
             placeholder="Search documents by name..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ paddingLeft: '2.5rem' }}
           />
         </div>
+      </div>
 
+      <div className="table-container">
         {loading ? (
-          <div className="flex flex-col gap-3">
-            {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} height="70px" />)}
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+            <Loader2 className="animate-spin" size={32} style={{ color: 'var(--primary)' }} />
           </div>
         ) : filteredDocs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-text-secondary)' }}>
-            <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-            <p style={{ fontWeight: '500' }}>No documents found</p>
+          <div className="empty-state">
+            <FileText />
+            <div>
+              <p style={{ fontWeight: '500', fontSize: '16px', color: 'var(--text-main)' }}>No documents found</p>
+              <p style={{ marginTop: '4px' }}>{search ? 'Try a different search term.' : 'You haven\'t uploaded any documents yet.'}</p>
+            </div>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <table>
               <thead>
-                <tr style={{ borderBottom: '2px solid var(--color-border)', color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>
-                  <th style={{ padding: '1rem 0.5rem', fontWeight: '600' }}>Name</th>
-                  <th style={{ padding: '1rem 0.5rem', fontWeight: '600' }}>Status</th>
-                  <th style={{ padding: '1rem 0.5rem', fontWeight: '600' }}>Uploaded Date</th>
-                  <th style={{ padding: '1rem 0.5rem', fontWeight: '600', textAlign: 'right' }}>Actions</th>
+                <tr>
+                  <th>Name</th>
+                  <th>Status</th>
+                  <th>Uploaded Date</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -96,38 +106,40 @@ const Documents = () => {
                   <tr 
                     key={doc.id} 
                     onClick={() => navigate(`/documents/${doc.id}`)}
-                    style={{ borderBottom: 'var(--border-thin)', cursor: 'pointer', transition: 'background-color 0.2s' }}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bg)'}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    style={{ cursor: 'pointer' }}
                   >
-                    <td style={{ padding: '1rem 0.5rem' }}>
-                      <div className="flex items-center gap-3">
-                        <FileText size={18} style={{ color: 'var(--color-primary)' }} />
-                        <span style={{ fontWeight: '500' }}>{doc.fileName}</span>
+                    <td>
+                      <div className="doc-name-cell">
+                        <FileText size={18} className="file-icon-small" />
+                        <span>{doc.fileName}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '1rem 0.5rem' }}><Badge status={doc.status}>{doc.status}</Badge></td>
-                    <td style={{ padding: '1rem 0.5rem', color: 'var(--color-text-secondary)' }}>
+                    <td>
+                      <span className={`badge ${doc.status.toLowerCase()}`}>
+                        {doc.status}
+                      </span>
+                    </td>
+                    <td style={{ color: 'var(--text-muted)' }}>
                       {new Date(doc.uploadedAt).toLocaleString()}
                     </td>
-                    <td style={{ padding: '1rem 0.5rem', textAlign: 'right' }}>
-                      <div className="flex justify-end gap-2">
+                    <td>
+                      <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
                         {doc.status === 'INDEXED' && (
-                          <Button 
-                            variant="secondary" size="sm" 
+                          <button 
+                            className="icon-btn" 
                             onClick={(e) => { e.stopPropagation(); navigate(`/chat/${doc.id}`); }}
-                            title="Chat with Document"
+                            title="Ask questions"
                           >
-                            <MessageSquare size={16} />
-                          </Button>
+                            <MessageSquare size={18} />
+                          </button>
                         )}
-                        <Button 
-                          variant="danger" size="sm" 
-                          onClick={(e) => handleDelete(e, doc.id)}
-                          title="Delete Document"
+                        <button 
+                          className="icon-btn delete" 
+                          onClick={(e) => confirmDelete(e, doc)}
+                          title="Delete document"
                         >
-                          <Trash2 size={16} />
-                        </Button>
+                          <Trash2 size={18} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -137,6 +149,16 @@ const Documents = () => {
           </div>
         )}
       </div>
+
+      <Modal isOpen={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} title="Delete document?">
+        <p className="modal-body">
+          Are you sure you want to delete <strong>{documentToDelete?.fileName}</strong>? This action cannot be undone.
+        </p>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={() => setDeleteModalOpen(false)}>Cancel</button>
+          <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
 import { User, Bell, Shield, AlertTriangle } from 'lucide-react';
 
 const Settings = () => {
@@ -16,102 +14,103 @@ const Settings = () => {
   ];
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 style={{ fontSize: '1.875rem', fontWeight: '700' }}>Settings</h1>
-        <p style={{ color: 'var(--color-text-secondary)', marginTop: '0.25rem' }}>Manage your account settings and preferences.</p>
+    <div className="fade-in">
+      <div className="dashboard-toolbar">
+        <div>
+          <h1 className="page-title">Settings</h1>
+          <p className="page-subtitle">Manage your account settings and preferences.</p>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '2rem', alignItems: 'start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '32px', alignItems: 'start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)',
-                backgroundColor: activeTab === tab.id ? 'var(--color-card)' : 'transparent',
-                color: activeTab === tab.id ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                fontWeight: '500', textAlign: 'left', border: 'none',
-                boxShadow: activeTab === tab.id ? 'var(--shadow-sm)' : 'none',
-                transition: 'all var(--transition-fast)'
-              }}
+              className={`nav-item ${activeTab === tab.id ? 'active' : ''}`}
+              style={{ color: activeTab === tab.id ? 'var(--primary)' : 'var(--text-main)' }}
             >
               <tab.icon size={18} /> {tab.label}
             </button>
           ))}
         </div>
 
-        <div className="card" style={{ padding: '2rem' }}>
+        <div>
           {activeTab === 'profile' && (
-            <div className="flex flex-col gap-6">
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', borderBottom: 'var(--border-thin)', paddingBottom: '1rem' }}>Profile Information</h2>
+            <div className="settings-card">
+              <h2 className="section-title" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '24px' }}>Profile Information</h2>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '32px' }}>
                 <div style={{ 
                   width: '80px', height: '80px', borderRadius: '50%', 
-                  backgroundColor: 'var(--color-primary)', color: '#fff',
+                  backgroundColor: 'var(--primary-light)', color: 'var(--primary)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '2rem', fontWeight: '600'
+                  fontSize: '28px', fontWeight: '600'
                 }}>
                   {user?.fullName?.charAt(0) || user?.email?.charAt(0) || 'U'}
                 </div>
-                <Button variant="secondary" disabled>Change Avatar</Button>
+                <button className="btn btn-secondary" disabled>Change Avatar</button>
               </div>
 
-              <div style={{ display: 'grid', gap: '1.5rem', maxWidth: '400px' }}>
-                <Input label="Full Name" defaultValue={user?.fullName || ''} disabled />
-                <Input label="Email Address" defaultValue={user?.email || ''} disabled />
+              <div className="form-group">
+                <label className="form-label">Full Name</label>
+                <input type="text" className="form-input" defaultValue={user?.fullName || ''} disabled />
               </div>
               
-              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: 'var(--border-thin)' }}>
-                <Button disabled>Save Changes</Button>
-                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.75rem' }}>
-                  Profile updates require an API endpoint which is currently under development.
-                </p>
+              <div className="form-group" style={{ marginBottom: '32px' }}>
+                <label className="form-label">Email Address</label>
+                <input type="text" className="form-input" defaultValue={user?.email || ''} disabled />
+              </div>
+              
+              <div style={{ paddingTop: '24px', borderTop: '1px solid var(--border-color)' }}>
+                <button className="btn btn-primary" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>Save Changes</button>
+                <span className="settings-note">Note: Profile updates require a backend API endpoint which is not yet implemented.</span>
               </div>
             </div>
           )}
 
           {activeTab === 'preferences' && (
-            <div className="flex flex-col gap-6">
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', borderBottom: 'var(--border-thin)', paddingBottom: '1rem' }}>Preferences</h2>
-              <div style={{ color: 'var(--color-text-secondary)' }}>
-                Notification settings and theme preferences will be available here soon.
-              </div>
+            <div className="settings-card">
+              <h2 className="section-title" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '24px' }}>Preferences</h2>
+              <p style={{ color: 'var(--text-muted)' }}>Notification settings and theme preferences will be available here soon.</p>
             </div>
           )}
 
           {activeTab === 'security' && (
-            <div className="flex flex-col gap-6">
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', borderBottom: 'var(--border-thin)', paddingBottom: '1rem' }}>Security</h2>
-              <div style={{ display: 'grid', gap: '1.5rem', maxWidth: '400px' }}>
-                <Input label="Current Password" type="password" disabled placeholder="••••••••" />
-                <Input label="New Password" type="password" disabled placeholder="••••••••" />
-                <Input label="Confirm New Password" type="password" disabled placeholder="••••••••" />
+            <div className="settings-card">
+              <h2 className="section-title" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '24px' }}>Security</h2>
+              
+              <div className="form-group">
+                <label className="form-label">Current Password</label>
+                <input type="password" className="form-input" disabled placeholder="••••••••" />
               </div>
-              <div>
-                <Button disabled>Update Password</Button>
-                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.75rem' }}>
-                  Password reset functionality is currently disabled in this environment.
-                </p>
+              <div className="form-group">
+                <label className="form-label">New Password</label>
+                <input type="password" className="form-input" disabled placeholder="••••••••" />
+              </div>
+              <div className="form-group" style={{ marginBottom: '32px' }}>
+                <label className="form-label">Confirm New Password</label>
+                <input type="password" className="form-input" disabled placeholder="••••••••" />
+              </div>
+              
+              <div style={{ paddingTop: '24px', borderTop: '1px solid var(--border-color)' }}>
+                <button className="btn btn-primary" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>Update Password</button>
+                <span className="settings-note">Note: Password reset functionality is currently disabled in this environment.</span>
               </div>
             </div>
           )}
 
           {activeTab === 'danger' && (
-            <div className="flex flex-col gap-6">
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: 'var(--color-danger)', borderBottom: 'var(--border-thin)', paddingBottom: '1rem' }}>Danger Zone</h2>
-              <div style={{ padding: '1.5rem', border: '1px solid var(--color-danger)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-danger-bg)' }}>
-                <h3 style={{ fontWeight: '600', color: 'var(--color-danger-text)', marginBottom: '0.5rem' }}>Delete Account</h3>
-                <p style={{ fontSize: '0.875rem', color: 'var(--color-danger-text)', marginBottom: '1.5rem' }}>
+            <div className="settings-card danger-zone">
+              <h2 className="section-title" style={{ borderBottom: '1px solid #fecaca', paddingBottom: '16px', marginBottom: '24px', color: 'var(--danger)' }}>Danger Zone</h2>
+              <div style={{ padding: '24px', backgroundColor: '#fef2f2', borderRadius: '8px' }}>
+                <h3 style={{ fontWeight: '600', color: '#991b1b', marginBottom: '8px' }}>Delete Account</h3>
+                <p style={{ fontSize: '14px', color: '#b91c1c', marginBottom: '24px' }}>
                   Permanently delete your account and all associated documents. This action cannot be undone.
                 </p>
-                <Button variant="danger" disabled>Delete Account</Button>
-                <p style={{ fontSize: '0.75rem', color: 'var(--color-danger-text)', marginTop: '0.75rem', opacity: 0.8 }}>
-                  Account deletion API is pending backend implementation.
-                </p>
+                <button className="btn btn-danger" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>Delete Account</button>
+                <span className="settings-note" style={{ color: '#b91c1c' }}>Note: Account deletion API is pending backend implementation.</span>
               </div>
             </div>
           )}
