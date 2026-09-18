@@ -16,7 +16,7 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { login } = useAuth();
+  const { setSession } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -45,10 +45,9 @@ const Register = () => {
     setLoading(true);
     
     try {
-      await authApi.register({ email, password, fullName });
-      // login automatically after registration
-      const res = await authApi.login({ email, password });
-      login(res.data.token);
+      // register returns a token directly — no second login call needed
+      const res = await authApi.register({ email, password, fullName });
+      setSession(res.data);
       toast('Registration successful!', 'success');
       navigate('/dashboard');
     } catch (err) {
@@ -77,6 +76,8 @@ const Register = () => {
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Input 
             label="Full Name" 
+            name="name"
+            autoComplete="name"
             value={fullName} 
             onChange={(e) => setFullName(e.target.value)} 
             required 
@@ -86,6 +87,8 @@ const Register = () => {
           <Input 
             label="Email" 
             type="email" 
+            name="email"
+            autoComplete="email"
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
             required 

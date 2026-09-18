@@ -14,7 +14,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { login } = useAuth();
+  const { setSession } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -25,7 +25,7 @@ const Login = () => {
     
     try {
       const res = await authApi.login({ email, password });
-      login(res.data.token);
+      setSession(res.data);
       toast('Login successful', 'success');
       navigate('/dashboard');
     } catch (err) {
@@ -55,6 +55,8 @@ const Login = () => {
           <Input 
             label="Email" 
             type="email" 
+            name="email"
+            autoComplete="email"
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
             required 
@@ -65,6 +67,8 @@ const Login = () => {
             <Input 
               label="Password" 
               type={showPassword ? 'text' : 'password'} 
+              name="password"
+              autoComplete="current-password"
               value={password} 
               onChange={(e) => setPassword(e.target.value)} 
               required 

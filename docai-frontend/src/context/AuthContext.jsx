@@ -1,36 +1,32 @@
 import { createContext, useContext, useState } from "react";
-import { authApi } from "../api/client";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const email = localStorage.getItem("docai_email");
-    return email ? { email } : null;
+    const fullName = localStorage.getItem("docai_fullName");
+    return email ? { email, fullName } : null;
   });
 
-  const login = async (email, password) => {
-    const { data } = await authApi.login({ email, password });
+  // Store session data after a successful login/register API call.
+  // Does NOT make any API call — the page handles that.
+  const setSession = (data) => {
     localStorage.setItem("docai_token", data.token);
     localStorage.setItem("docai_email", data.email);
-    setUser({ email: data.email, fullName: data.fullName });
-  };
-
-  const register = async (email, password, fullName) => {
-    const { data } = await authApi.register({ email, password, fullName });
-    localStorage.setItem("docai_token", data.token);
-    localStorage.setItem("docai_email", data.email);
+    localStorage.setItem("docai_fullName", data.fullName || "");
     setUser({ email: data.email, fullName: data.fullName });
   };
 
   const logout = () => {
     localStorage.removeItem("docai_token");
     localStorage.removeItem("docai_email");
+    localStorage.removeItem("docai_fullName");
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, setSession, logout }}>
       {children}
     </AuthContext.Provider>
   );

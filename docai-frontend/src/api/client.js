@@ -38,6 +38,9 @@ export const documentApi = {
   },
   list: () => api.get("/api/documents"),
   delete: (id) => api.delete(`/api/documents/${id}`),
+  // Share a document with another user (VIEWER or EDITOR role)
+  share: (id, userId, role = "VIEWER") =>
+    api.post(`/api/documents/${id}/share`, null, { params: { userId, role } }),
 };
 
 export const chatApi = {
