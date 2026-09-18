@@ -4,9 +4,10 @@ AI Document Intelligence Platform. Three services, run each from its own folder 
 
 ```
 docai/
-├── docai-backend/       Spring Boot (Java) — auth, upload, chat proxy
-├── docai-rag-service/   FastAPI (Python) — chunking, embeddings, RAG query
-└── docai-frontend/      React (Vite) — UI
+├── docai-backend/       Spring Boot (Java) — auth, upload, chat proxy, RBAC
+├── docai-rag-service/   FastAPI (Python) — chunking, embeddings, RAG query (multi-doc, SSE streaming)
+├── docai-frontend/      React (Vite) — UI (comparison view, SSE chat)
+└── docai-mobile/        React Native (Expo) — mobile client
 ```
 
 ## Quick Start (Docker Compose)
@@ -22,6 +23,9 @@ docker-compose up --build
 * **Asynchronous Ingestion (RabbitMQ):** Document chunking and embedding (via Gemini) are offloaded to a RabbitMQ queue. This prevents the Spring Boot `/upload` endpoint from blocking or timing out on large PDFs, allowing the UI to remain responsive while the Python worker processes chunks in the background.
 * **Resilience & Idempotency:** The Python worker catches ingestion failures and uses an internal callback (`PATCH /api/documents/{id}/status`) to notify the Spring backend if a document failed to parse. Collections in ChromaDB are explicitly cleared before re-ingesting to ensure idempotency across database resets.
 * **RAG Tuning:** Documents are processed using a `RecursiveCharacterTextSplitter` with a 1000-character chunk size and 150-character overlap to preserve context boundaries before embedding with `models/gemini-embedding-001`. The top 4 vectors (`k=4`) are retrieved for each query.
+* **Role-Based Access Control (RBAC):** Users can share documents with each other by assigning `VIEWER` or `EDITOR` roles. `DocumentController` and `ChatController` verify permissions via the `DocumentShare` entity.
+* **Multi-Document Comparison (Upcoming):** Select multiple documents in the UI to query across a concatenated context for cross-document insights.
+* **Streaming Chat (Upcoming):** Chat responses are streamed chunk-by-chunk via Server-Sent Events (SSE) from the FastAPI backend through the Spring Boot proxy directly to the React/React Native clients.
 
 This will spin up:
 - RabbitMQ and Redis

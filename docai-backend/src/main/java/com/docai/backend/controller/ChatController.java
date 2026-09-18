@@ -31,7 +31,7 @@ public class ChatController {
             @Valid @RequestBody AskRequest req,
             @AuthenticationPrincipal AuthenticatedUser user
     ) {
-        com.docai.backend.model.Document doc = documentRepository.findByIdAndOwnerId(req.documentId(), user.userId())
+        com.docai.backend.model.Document doc = documentRepository.findAccessibleByIdAndUserId(req.documentId(), user.userId())
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Document not found or access denied"));
         ChatMessage msg = ragQueryService.ask(user.userId(), req.documentId(), req.question());
         return ResponseEntity.ok(msg);
@@ -42,7 +42,7 @@ public class ChatController {
             @PathVariable Long documentId,
             @AuthenticationPrincipal AuthenticatedUser user) {
         
-        com.docai.backend.model.Document doc = documentRepository.findByIdAndOwnerId(documentId, user.userId())
+        com.docai.backend.model.Document doc = documentRepository.findAccessibleByIdAndUserId(documentId, user.userId())
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Document not found or access denied"));
         
         return ResponseEntity.ok(chatMessageRepository.findByDocumentIdOrderByCreatedAtAsc(documentId));

@@ -60,4 +60,15 @@ public class DocumentController {
         documentService.delete(id, user.userId());
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{id}/share")
+    public ResponseEntity<Void> shareDocument(
+            @PathVariable Long id,
+            @RequestParam("userId") Long targetUserId,
+            @RequestParam(value = "role", defaultValue = "VIEWER") com.docai.backend.model.DocumentShareRole role,
+            @AuthenticationPrincipal AuthenticatedUser user
+    ) {
+        documentService.shareDocument(id, user.userId(), targetUserId, role);
+        return ResponseEntity.ok().build();
+    }
 }

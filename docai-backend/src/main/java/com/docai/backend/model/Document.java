@@ -2,6 +2,8 @@ package com.docai.backend.model;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "documents")
@@ -29,6 +31,9 @@ public class Document {
     private DocumentStatus status = DocumentStatus.PENDING;
 
     private Instant uploadedAt = Instant.now();
+
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DocumentShare> shares = new ArrayList<>();
 
     public enum DocumentStatus {
         PENDING, PROCESSING, INDEXED, FAILED
@@ -92,6 +97,14 @@ public class Document {
 
     public void setUploadedAt(Instant uploadedAt) {
         this.uploadedAt = uploadedAt;
+    }
+
+    public List<DocumentShare> getShares() {
+        return shares;
+    }
+
+    public void setShares(List<DocumentShare> shares) {
+        this.shares = shares;
     }
 
     public static DocumentBuilder builder() {

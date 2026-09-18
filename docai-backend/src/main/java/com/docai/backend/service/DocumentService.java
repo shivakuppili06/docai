@@ -21,6 +21,8 @@ import java.util.UUID;
 public class DocumentService {
 
     private final DocumentRepository documentRepository;
+    private final com.docai.backend.repository.DocumentShareRepository documentShareRepository;
+    private final com.docai.backend.repository.UserRepository userRepository;
     private final RabbitTemplate rabbitTemplate;
     private final S3Client s3Client;
 
@@ -33,8 +35,14 @@ public class DocumentService {
     @org.springframework.beans.factory.annotation.Value("${aws.s3-bucket}")
     private String s3Bucket;
 
-    public DocumentService(DocumentRepository documentRepository, RabbitTemplate rabbitTemplate, S3Client s3Client) {
+    public DocumentService(DocumentRepository documentRepository, 
+                           com.docai.backend.repository.DocumentShareRepository documentShareRepository,
+                           com.docai.backend.repository.UserRepository userRepository,
+                           RabbitTemplate rabbitTemplate, 
+                           S3Client s3Client) {
         this.documentRepository = documentRepository;
+        this.documentShareRepository = documentShareRepository;
+        this.userRepository = userRepository;
         this.rabbitTemplate = rabbitTemplate;
         this.s3Client = s3Client;
     }
@@ -102,7 +110,7 @@ public class DocumentService {
     }
 
     public List<Document> listForUser(Long ownerId) {
-        return documentRepository.findByOwnerId(ownerId);
+        return documentRepository.findAllAccessibleByUserId(ownerId);
     }
 
     public Document updateStatus(Long documentId, Document.DocumentStatus status) {
@@ -145,5 +153,19 @@ public class DocumentService {
         }
 
         documentRepository.delete(doc);
+    }
+
+    public void shareDocument(Long documentId, Long ownerId, Long targetUserId, com.docai.backend.model.DocumentShareRole role) {
+        Document doc = documentRepository.findByIdAndOwnerId(documentId, ownerId)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found or you are not the owner: " + documentId));
+                
+        com.docai.backend.model.User targetUser = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Target user not found: " + targetUserId));
+                
+        com.docai.backend.model.DocumentShare share = documentShareRepository.findByDocumentIdAndSharedWithId(documentId, targetUserId)
+                .orElse(new com.docai.backend.model.DocumentShare(doc, targetUser, role));
+                
+        share.setRole(role);
+        documentShareRepository.save(share);
     }
 }
