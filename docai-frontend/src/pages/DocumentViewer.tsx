@@ -5,7 +5,7 @@ import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Skeleton } from '../components/ui/Skeleton';
-import { FileText, MessageSquare, Trash2, ArrowLeft, Download, EyeOff } from 'lucide-react';
+import { FileText, MessageSquare, Trash2, ArrowLeft, Download, ExternalLink, Loader2 } from 'lucide-react';
 
 const DocumentViewer = () => {
   const { documentId } = useParams({ strict: false });
@@ -111,27 +111,52 @@ const DocumentViewer = () => {
             <div style={{ fontWeight: '500' }}>{new Date(doc.uploadedAt).toLocaleString()}</div>
           </div>
           
-          {/* Missing endpoints noted in spec */}
-          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: 'var(--border-thin)' }}>
-            <Button variant="secondary" className="w-full flex justify-center items-center gap-2" disabled>
-              <Download size={16} /> Download PDF <br/><span style={{fontSize: '10px'}}>(Coming Soon)</span>
+          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: 'var(--border-thin)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <Button
+              variant="secondary"
+              className="w-full flex justify-center items-center gap-2"
+              disabled={!docUrl}
+              onClick={() => docUrl && window.open(docUrl, '_blank')}
+            >
+              <ExternalLink size={16} /> View PDF
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full flex justify-center items-center gap-2"
+              disabled={!docUrl}
+              onClick={() => {
+                if (!docUrl) return;
+                const a = document.createElement('a');
+                a.href = docUrl;
+                a.download = doc.fileName;
+                a.click();
+              }}
+            >
+              <Download size={16} /> Download PDF
             </Button>
           </div>
         </div>
 
         {/* PDF Preview */}
-        <div className="card" style={{ height: '70vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-bg)', overflow: 'hidden' }}>
+        <div className="card" style={{ height: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-bg)', gap: '1rem' }}>
           {docUrl ? (
-            <iframe 
-              src={docUrl} 
-              title="PDF Preview"
-              style={{ width: '100%', height: '100%', border: 'none' }}
-            />
+            <>
+              <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FileText size={40} style={{ color: 'var(--primary)' }} />
+              </div>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '600' }}>{doc.fileName}</h3>
+              <p style={{ color: 'var(--color-text-secondary)', textAlign: 'center', maxWidth: '400px' }}>
+                Click the button below to open the PDF in a new tab, or use the sidebar buttons to view or download.
+              </p>
+              <Button onClick={() => window.open(docUrl, '_blank')} className="flex items-center gap-2">
+                <ExternalLink size={16} /> Open PDF in New Tab
+              </Button>
+            </>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <EyeOff size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }} />
-              <h3 style={{ fontSize: '1.25rem', fontWeight: '600', color: 'var(--color-text-secondary)' }}>PDF Preview Loading</h3>
-            </div>
+            <>
+              <Loader2 size={40} className="animate-spin" style={{ color: 'var(--primary)' }} />
+              <p style={{ color: 'var(--color-text-secondary)' }}>Loading document...</p>
+            </>
           )}
         </div>
       </div>
