@@ -17,7 +17,7 @@ export const DocumentRow = ({ doc, onDeleteClick, isCompact = false }: DocumentR
   if (isCompact) {
     return (
       <div 
-        onClick={() => navigate({ to: `/documents/${doc.id}` })}
+        onClick={() => navigate({ to: '/documents/$documentId', params: { documentId: doc.id.toString() } })}
         className="document-row-compact"
         style={{ 
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
@@ -51,7 +51,7 @@ export const DocumentRow = ({ doc, onDeleteClick, isCompact = false }: DocumentR
 
   return (
     <tr 
-      onClick={() => navigate({ to: `/documents/${doc.id}` })}
+      onClick={() => navigate({ to: '/documents/$documentId', params: { documentId: doc.id.toString() } })}
       style={{ cursor: 'pointer' }}
     >
       <td>
@@ -72,7 +72,7 @@ export const DocumentRow = ({ doc, onDeleteClick, isCompact = false }: DocumentR
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={(e) => { e.stopPropagation(); navigate({ to: `/chat/${doc.id}` }); }}
+              onClick={(e) => { e.stopPropagation(); navigate({ to: '/chat/$documentId', params: { documentId: doc.id.toString() } }); }}
               title="Ask questions"
               aria-label="Ask questions"
             >
