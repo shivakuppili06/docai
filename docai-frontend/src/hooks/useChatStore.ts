@@ -12,6 +12,7 @@ interface ChatState {
   setLoading: (loading: boolean) => void;
   setSending: (sending: boolean) => void;
   addMessage: (message: AskResponse) => void;
+  removeMessage: (id: string) => void;
   updateMessageText: (id: string, text: string) => void;
   updateMessageSources: (id: string, sources: string) => void;
 }
@@ -36,6 +37,10 @@ export const useChatStore = create<ChatState>((set) => ({
   
   addMessage: (message) => set((state) => ({
     history: [...state.history, message]
+  })),
+  
+  removeMessage: (id) => set((state) => ({
+    history: state.history.filter((msg) => msg.id !== id)
   })),
   
   updateMessageText: (id, text) => set((state) => ({

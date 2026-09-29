@@ -63,7 +63,7 @@ const Chat = () => {
   const { 
     doc, history, loading, sending, 
     setDoc, setHistory, setLoading, setSending, 
-    addMessage, updateMessageText, updateMessageSources 
+    addMessage, removeMessage, updateMessageText, updateMessageSources 
   } = useChatStore();
   
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
@@ -71,6 +71,11 @@ const Chat = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Reset store state whenever the documentId changes
+    setDoc(null);
+    setHistory([]);
+    setLoading(true);
+
     const fetchData = async () => {
       if (!documentId) return;
       try {
@@ -89,6 +94,7 @@ const Chat = () => {
         setHistory(historyRes.data);
       } catch (err) {
         toast('Failed to load chat history', 'error');
+        navigate({ to: '/documents' });
       } finally {
         setLoading(false);
       }
@@ -127,11 +133,13 @@ const Chat = () => {
           setSending(false);
         },
         (err) => {
-          toast('Stream error', 'error');
+          removeMessage(tempId);  // Remove the blank placeholder bubble
+          toast('Failed to get a response. Please try again.', 'error');
           setSending(false);
         }
       );
     } catch (err) {
+      removeMessage(tempId);
       toast('Failed to start stream', 'error');
       setSending(false);
     }
