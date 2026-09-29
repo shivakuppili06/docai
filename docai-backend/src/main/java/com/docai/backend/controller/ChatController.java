@@ -31,10 +31,20 @@ public class ChatController {
             @Valid @RequestBody AskRequest req,
             @AuthenticationPrincipal AuthenticatedUser user
     ) {
-        com.docai.backend.model.Document doc = documentRepository.findAccessibleByIdAndUserId(req.documentId(), user.userId())
+        documentRepository.findAccessibleByIdAndUserId(req.documentId(), user.userId())
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Document not found or access denied"));
         ChatMessage msg = ragQueryService.ask(user.userId(), req.documentId(), req.question());
         return ResponseEntity.ok(msg);
+    }
+
+    @PostMapping(value = "/ask/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter askStream(
+            @Valid @RequestBody AskRequest req,
+            @AuthenticationPrincipal AuthenticatedUser user
+    ) {
+        documentRepository.findAccessibleByIdAndUserId(req.documentId(), user.userId())
+                .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Document not found or access denied"));
+        return ragQueryService.askStream(user.userId(), req.documentId(), req.question());
     }
 
     @GetMapping("/history/{documentId}")
@@ -42,7 +52,7 @@ public class ChatController {
             @PathVariable Long documentId,
             @AuthenticationPrincipal AuthenticatedUser user) {
         
-        com.docai.backend.model.Document doc = documentRepository.findAccessibleByIdAndUserId(documentId, user.userId())
+        documentRepository.findAccessibleByIdAndUserId(documentId, user.userId())
                 .orElseThrow(() -> new org.springframework.security.access.AccessDeniedException("Document not found or access denied"));
         
         return ResponseEntity.ok(chatMessageRepository.findByDocumentIdOrderByCreatedAtAsc(documentId));

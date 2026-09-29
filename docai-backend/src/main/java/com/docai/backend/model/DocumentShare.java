@@ -13,6 +13,7 @@ public class DocumentShare {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_id", nullable = false)
     @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Document document;
 
     @ManyToOne(fetch = FetchType.LAZY)

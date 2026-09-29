@@ -1,3 +1,4 @@
+@import "tailwindcss";
 /* ==========================================================================
    Clean SaaS Design System & Tokens (Light Theme)
    ========================================================================== */
@@ -291,3 +292,5 @@ tr:hover td { background: #f8fafc; }
 .toast-error { border-left: 4px solid var(--danger); }
 .toast-info { border-left: 4px solid var(--primary); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+
+

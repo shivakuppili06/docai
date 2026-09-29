@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     aws_secret_access_key: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
     aws_region: str = os.getenv("AWS_REGION", "us-east-1")
     s3_bucket: str = os.getenv("AWS_S3_BUCKET", "")
+    
+    redis_host: str = os.getenv("REDIS_HOST", "localhost")
+    redis_port: int = int(os.getenv("REDIS_PORT", "6379"))
 
     embedding_model: str = "models/gemini-embedding-001"
     chat_model: str = "gemini-3.8-flash"

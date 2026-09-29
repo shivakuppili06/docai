@@ -74,7 +74,7 @@ public class DocumentService {
                     new DocumentProcessingEvent(doc.getId(), doc.getStoragePath(), ownerId)
             );
             doc.setStatus(Document.DocumentStatus.PROCESSING);
-        } catch (Exception e) {
+        } catch (org.springframework.amqp.AmqpException e) {
             System.err.println("RabbitMQ unavailable, falling back to direct RAG /ingest: " + e.getMessage());
             try {
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -101,7 +101,7 @@ public class DocumentService {
                     System.err.println("RAG /ingest returned " + response.statusCode() + ": " + response.body());
                     doc.setStatus(Document.DocumentStatus.FAILED);
                 }
-            } catch (Exception ex) {
+            } catch (IOException | InterruptedException ex) {
                 System.err.println("Direct RAG ingestion failed: " + ex.getMessage());
                 doc.setStatus(Document.DocumentStatus.FAILED);
             }
@@ -147,7 +147,7 @@ public class DocumentService {
                     .key(doc.getStoragePath())
                     .build();
             s3Client.deleteObject(deleteObjectRequest);
-        } catch (Exception e) {
+        } catch (software.amazon.awssdk.services.s3.model.S3Exception e) {
             System.err.println("Failed to delete S3 object: " + e.getMessage());
         }
 
@@ -161,7 +161,7 @@ public class DocumentService {
                     .DELETE()
                     .build();
             httpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-        } catch (Exception e) {
+        } catch (IOException | InterruptedException e) {
             System.err.println("Failed to delete vectors from RAG service: " + e.getMessage());
         }
 

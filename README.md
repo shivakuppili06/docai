@@ -41,3 +41,14 @@ This will spin up:
 5. `cd docai-frontend && npm install && npm run dev` (port 5173)
 
 Each service has its own configuration and setup details.
+
+## Known Limitations & Roadmap
+* [x] **Tailwind CSS + shadcn/ui**: Integrated Tailwind and migrated reusable components to use shadcn/ui primitives.
+* [x] **TanStack Router**: Replace React Router.
+* [x] **Zustand for Chat State**: Implement Zustand store.
+* [x] **SSE Streaming Chat**: Server-Sent Events implementation.
+* [x] **Analytics Dashboard**: Build out with real data and charts.
+* [x] **Fix Document-Sharing Bug**: Fix circular serialization issue in DocumentShare.
+* [x] **Redis Caching**: Add caching layer for RAG query results.
+* [x] **HLD / LLD Documentation**: Added docs/ARCHITECTURE.md.
+* [x] **Rate Limiting**: Protect endpoints from abuse using Redis.

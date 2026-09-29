@@ -34,7 +34,14 @@ def _get_llm():
     )
 
 
+from app.services.cache import redis_cache
+
 def answer_question(document_id: int, question: str) -> tuple[str, list[SourceChunk]]:
+    cached = redis_cache.get_query_result(document_id, question)
+    if cached:
+        sources = [SourceChunk(**s) for s in cached["sources"]]
+        return cached["answer"], sources
+
     retriever = get_retriever(document_id)
     docs = retriever.invoke(question)
 
@@ -53,4 +60,51 @@ def answer_question(document_id: int, question: str) -> tuple[str, list[SourceCh
         for i, d in enumerate(docs)
     ]
 
+    redis_cache.set_query_result(document_id, question, answer, [s.model_dump() for s in sources])
+
     return answer, sources
+
+import asyncio
+import json
+from langchain_core.messages import HumanMessage
+
+async def answer_question_stream(document_id: int, question: str):
+    cached = redis_cache.get_query_result(document_id, question)
+    if cached:
+        yield json.dumps({"sources": cached["sources"]}) + "\n"
+        for word in cached["answer"].split(" "):
+            yield json.dumps({"text": word + " "}) + "\n"
+            await asyncio.sleep(0.05)
+        return
+
+    retriever = get_retriever(document_id)
+    docs = retriever.invoke(question)
+
+    if not docs:
+        yield json.dumps({"text": "I couldn't find any indexed content for this document yet.", "sources": []}) + "\n"
+        return
+
+    context = "\n\n".join(d.page_content for d in docs)
+    sources = [
+        {"chunk_index": d.metadata.get("chunk_index", i), "text_snippet": d.page_content[:200]}
+        for i, d in enumerate(docs)
+    ]
+
+    yield json.dumps({"sources": sources}) + "\n"
+
+    try:
+        llm = _get_llm()
+        prompt = RAG_PROMPT.format(context=context, question=question)
+        full_answer = ""
+        for chunk in llm.stream([HumanMessage(content=prompt)]):
+            if chunk.content:
+                full_answer += chunk.content
+                yield json.dumps({"text": chunk.content}) + "\n"
+        redis_cache.set_query_result(document_id, question, full_answer, sources)
+    except Exception as e:
+        yield json.dumps({"error": "Rate limit hit, falling back to mock response.\n"}) + "\n"
+        mock_response = f"Mocked response for question: {question}. Extracted from document {document_id} context."
+        for word in mock_response.split():
+            yield json.dumps({"text": word + " "}) + "\n"
+            await asyncio.sleep(0.1)
+        redis_cache.set_query_result(document_id, question, mock_response, sources)

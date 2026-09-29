@@ -75,6 +75,22 @@ public class ChatMessage {
         this.documentId = documentId;
     }
 
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public Document getDocument() {
+        return document;
+    }
+
+    public void setDocument(Document document) {
+        this.document = document;
+    }
+
     public String getQuestion() {
         return question;
     }
