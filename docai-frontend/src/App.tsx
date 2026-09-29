@@ -5,7 +5,8 @@ import {
   createRootRoute, 
   RouterProvider,
   Outlet,
-  useNavigate
+  useNavigate,
+  createHashHistory
 } from "@tanstack/react-router";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./components/ui/Toast";
@@ -145,7 +146,8 @@ const routeTree = rootRoute.addChildren([
   settingsRoute,
 ]);
 
-const router = createRouter({ routeTree });
+const hashHistory = createHashHistory();
+const router = createRouter({ routeTree, history: hashHistory });
 
 declare module '@tanstack/react-router' {
   interface Register {
