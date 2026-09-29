@@ -1,58 +1,37 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { documentApi } from '../api/client';
-import { useToast } from '../components/ui/Toast';
+import React, { useState, useMemo } from 'react';
+import { useDocuments } from '../hooks/useDocuments';
+import { useDebounce } from '../hooks/useDebounce';
 import { Modal } from '../components/ui/Modal';
-import { FileText, Search, Trash2, MessageSquare, Loader2 } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Skeleton } from '../components/ui/Skeleton';
+import { DocumentRow } from '../components/DocumentRow';
+import { Search, Loader2 } from 'lucide-react';
 
 const Documents = () => {
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { documents, loading, deleteDocument } = useDocuments(0);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
-  
-  const { toast } = useToast();
-  const navigate = useNavigate();
-
-  const fetchDocuments = async () => {
-    try {
-      const res = await documentApi.list();
-      setDocuments(res.data);
-    } catch (err) {
-      toast('Failed to load documents', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDocuments();
-  }, []);
 
   const filteredDocs = useMemo(() => {
-    if (!search) return documents;
-    const lowerSearch = search.toLowerCase();
+    if (!debouncedSearch) return documents;
+    const lowerSearch = debouncedSearch.toLowerCase();
     return documents.filter(d => d.fileName.toLowerCase().includes(lowerSearch));
-  }, [documents, search]);
+  }, [documents, debouncedSearch]);
 
-  const confirmDelete = (e, doc) => {
-    e.stopPropagation();
+  const confirmDelete = (doc) => {
     setDocumentToDelete(doc);
     setDeleteModalOpen(true);
   };
 
   const handleDelete = async () => {
     if (!documentToDelete) return;
-    try {
-      await documentApi.delete(documentToDelete.id);
-      toast('Document deleted successfully', 'success');
-      setDocuments(documents.filter(d => d.id !== documentToDelete.id));
-    } catch (err) {
-      toast('Failed to delete', 'error');
-    } finally {
+    const success = await deleteDocument(documentToDelete.id);
+    if (success) {
       setDeleteModalOpen(false);
       setDocumentToDelete(null);
     }
@@ -66,8 +45,10 @@ const Documents = () => {
           <p className="page-subtitle">Manage and search through all your uploaded files.</p>
         </div>
         <div className="search-wrapper">
-          <Search className="search-icon" />
+          <Search className="search-icon" aria-hidden="true" />
+          <label htmlFor="search-docs" className="sr-only">Search documents by name</label>
           <input 
+            id="search-docs"
             type="text"
             className="search-input"
             placeholder="Search documents by name..." 
@@ -79,17 +60,17 @@ const Documents = () => {
 
       <div className="table-container">
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
-            <Loader2 className="animate-spin" size={32} style={{ color: 'var(--primary)' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', backgroundColor: 'var(--border-color)', border: '1px solid var(--border-color)' }}>
+            <Skeleton height="56px" borderRadius="0" />
+            <Skeleton height="56px" borderRadius="0" />
+            <Skeleton height="56px" borderRadius="0" />
+            <Skeleton height="56px" borderRadius="0" />
           </div>
         ) : filteredDocs.length === 0 ? (
-          <div className="empty-state">
-            <FileText />
-            <div>
-              <p style={{ fontWeight: '500', fontSize: '16px', color: 'var(--text-main)' }}>No documents found</p>
-              <p style={{ marginTop: '4px' }}>{search ? 'Try a different search term.' : 'You haven\'t uploaded any documents yet.'}</p>
-            </div>
-          </div>
+          <EmptyState 
+            title="No documents found" 
+            description={debouncedSearch ? 'Try a different search term.' : 'You haven\'t uploaded any documents yet.'}
+          />
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table>
@@ -103,46 +84,11 @@ const Documents = () => {
               </thead>
               <tbody>
                 {filteredDocs.map(doc => (
-                  <tr 
+                  <DocumentRow 
                     key={doc.id} 
-                    onClick={() => navigate(`/documents/${doc.id}`)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <td>
-                      <div className="doc-name-cell">
-                        <FileText size={18} className="file-icon-small" />
-                        <span>{doc.fileName}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`badge ${doc.status.toLowerCase()}`}>
-                        {doc.status}
-                      </span>
-                    </td>
-                    <td style={{ color: 'var(--text-muted)' }}>
-                      {new Date(doc.uploadedAt).toLocaleString()}
-                    </td>
-                    <td>
-                      <div className="action-buttons" style={{ justifyContent: 'flex-end' }}>
-                        {doc.status === 'INDEXED' && (
-                          <button 
-                            className="icon-btn" 
-                            onClick={(e) => { e.stopPropagation(); navigate(`/chat/${doc.id}`); }}
-                            title="Ask questions"
-                          >
-                            <MessageSquare size={18} />
-                          </button>
-                        )}
-                        <button 
-                          className="icon-btn delete" 
-                          onClick={(e) => confirmDelete(e, doc)}
-                          title="Delete document"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                    doc={doc} 
+                    onDeleteClick={confirmDelete}
+                  />
                 ))}
               </tbody>
             </table>
@@ -154,9 +100,9 @@ const Documents = () => {
         <p className="modal-body">
           Are you sure you want to delete <strong>{documentToDelete?.fileName}</strong>? This action cannot be undone.
         </p>
-        <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={() => setDeleteModalOpen(false)}>Cancel</button>
-          <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
+        <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+          <Button variant="secondary" onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+          <Button variant="danger" onClick={handleDelete}>Delete</Button>
         </div>
       </Modal>
     </div>

@@ -1,6 +1,10 @@
-import React from 'react';
+import React, { useId } from 'react';
+import PropTypes from 'prop-types';
 
-export const Input = React.forwardRef(({ label, error, className = '', style, ...props }, ref) => {
+export const Input = React.forwardRef(({ label, error, className = '', id, style, ...props }, ref) => {
+  const generatedId = useId();
+  const inputId = id || generatedId;
+
   const containerStyle = {
     display: 'flex',
     flexDirection: 'column',
@@ -23,8 +27,9 @@ export const Input = React.forwardRef(({ label, error, className = '', style, ..
 
   return (
     <div style={containerStyle} className={className}>
-      {label && <label style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--color-text-dark)' }}>{label}</label>}
+      {label && <label htmlFor={inputId} style={{ fontSize: '0.875rem', fontWeight: '500', color: 'var(--color-text-dark)' }}>{label}</label>}
       <input
+        id={inputId}
         ref={ref}
         style={inputStyle}
         {...props}
@@ -33,4 +38,13 @@ export const Input = React.forwardRef(({ label, error, className = '', style, ..
     </div>
   );
 });
+
 Input.displayName = 'Input';
+
+Input.propTypes = {
+  label: PropTypes.string,
+  error: PropTypes.string,
+  className: PropTypes.string,
+  id: PropTypes.string,
+  style: PropTypes.object
+};

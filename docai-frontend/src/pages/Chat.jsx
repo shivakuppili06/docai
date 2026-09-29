@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { chatApi, documentApi } from '../api/client';
 import { useToast } from '../components/ui/Toast';
+import { Skeleton } from '../components/ui/Skeleton';
 import { Send, ArrowLeft, Bot, User, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 const SourcesPanel = ({ citations }) => {
@@ -137,10 +138,12 @@ const Chat = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-        <div className="typing-indicator">
-          <span></span><span></span><span></span>
-        </div>
+      <div className="chat-container fade-in" style={{ padding: '24px' }}>
+        <Skeleton height="20px" width="40%" style={{ marginBottom: '32px' }} />
+        <Skeleton height="60px" style={{ marginBottom: '16px', marginLeft: 'auto', width: '70%' }} />
+        <Skeleton height="80px" style={{ marginBottom: '24px', marginRight: 'auto', width: '70%' }} />
+        <Skeleton height="60px" style={{ marginBottom: '16px', marginLeft: 'auto', width: '70%' }} />
+        <Skeleton height="80px" style={{ marginBottom: '24px', marginRight: 'auto', width: '70%' }} />
       </div>
     );
   }
@@ -148,7 +151,7 @@ const Chat = () => {
   return (
     <div className="chat-container fade-in">
       <div className="chat-header">
-        <button className="icon-btn" onClick={() => navigate(`/documents`)}>
+        <button className="icon-btn" aria-label="Back to documents" onClick={() => navigate(`/documents`)}>
           <ArrowLeft size={20} />
         </button>
         <div>
@@ -230,7 +233,9 @@ const Chat = () => {
 
       <div className="chat-input-area">
         <form onSubmit={handleAsk} className="chat-form">
+          <label htmlFor="chat-input" className="sr-only">Ask a question</label>
           <textarea
+            id="chat-input"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -242,6 +247,7 @@ const Chat = () => {
             type="submit" 
             className="btn-send"
             disabled={!question.trim() || sending}
+            aria-label="Send message"
           >
             <Send size={20} />
           </button>

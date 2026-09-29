@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { X } from 'lucide-react';
 
 export const Modal = ({ isOpen, onClose, title, children }) => {
@@ -8,12 +9,44 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') onClose();
     };
+
+    const handleTab = (e) => {
+      if (e.key === 'Tab') {
+        const focusableElements = modalRef.current?.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusableElements && focusableElements.length > 0) {
+          const firstElement = focusableElements[0];
+          const lastElement = focusableElements[focusableElements.length - 1];
+
+          if (e.shiftKey) {
+            if (document.activeElement === firstElement) {
+              lastElement.focus();
+              e.preventDefault();
+            }
+          } else {
+            if (document.activeElement === lastElement) {
+              firstElement.focus();
+              e.preventDefault();
+            }
+          }
+        }
+      }
+    };
+
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
+      document.addEventListener('keydown', handleTab);
       document.body.style.overflow = 'hidden';
+      // Auto-focus first focusable element
+      setTimeout(() => {
+        const firstFocusable = modalRef.current?.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (firstFocusable) firstFocusable.focus();
+      }, 50);
     }
     return () => {
       document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('keydown', handleTab);
       document.body.style.overflow = 'unset';
     };
   }, [isOpen, onClose]);
@@ -21,11 +54,16 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 50,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '1rem'
-    }}>
+    <div 
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1rem'
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
       <div 
         style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)' }} 
         onClick={onClose} 
@@ -54,9 +92,10 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '1.25rem 1.5rem', borderBottom: 'var(--border-thin)'
         }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600' }}>{title}</h2>
+          <h2 id="modal-title" style={{ fontSize: '1.25rem', fontWeight: '600' }}>{title}</h2>
           <button 
             onClick={onClose}
+            aria-label="Close modal"
             style={{ 
               background: 'none', border: 'none', color: 'var(--color-text-secondary)',
               cursor: 'pointer', padding: '0.25rem', borderRadius: 'var(--radius-sm)'
@@ -72,4 +111,11 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
       </div>
     </div>
   );
+};
+
+Modal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  title: PropTypes.string.isRequired,
+  children: PropTypes.node
 };
