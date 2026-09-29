@@ -39,6 +39,7 @@ export const documentApi = {
   },
   list: () => api.get<Document[]>("/api/documents"),
   delete: (id: string) => api.delete(`/api/documents/${id}`),
+  getUrl: (id: string) => api.get<{url: string}>(`/api/documents/${id}/url`),
   // Share a document with another user (VIEWER or EDITOR role)
   share: (id: string, userId: string, role = "VIEWER") =>
     api.post(`/api/documents/${id}/share`, null, { params: { userId, role } }),

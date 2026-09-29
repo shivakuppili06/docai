@@ -11,7 +11,12 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+import java.time.Duration;
 
 import java.io.IOException;
 import java.util.List;
@@ -25,6 +30,7 @@ public class DocumentService {
     private final com.docai.backend.repository.UserRepository userRepository;
     private final RabbitTemplate rabbitTemplate;
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
 
     @org.springframework.beans.factory.annotation.Value("${app.rag-service.base-url}")
     private String ragServiceBaseUrl;
@@ -39,12 +45,14 @@ public class DocumentService {
                            com.docai.backend.repository.DocumentShareRepository documentShareRepository,
                            com.docai.backend.repository.UserRepository userRepository,
                            RabbitTemplate rabbitTemplate, 
-                           S3Client s3Client) {
+                           S3Client s3Client,
+                           S3Presigner s3Presigner) {
         this.documentRepository = documentRepository;
         this.documentShareRepository = documentShareRepository;
         this.userRepository = userRepository;
         this.rabbitTemplate = rabbitTemplate;
         this.s3Client = s3Client;
+        this.s3Presigner = s3Presigner;
     }
 
     public Document upload(MultipartFile file, Long ownerId) throws IOException {
@@ -124,6 +132,25 @@ public class DocumentService {
             }
         }
         return doc;
+    }
+
+    public String generatePresignedUrl(Long documentId, Long userId) {
+        Document doc = getDocument(documentId, userId); // Will throw if not found or no auth
+
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(s3Bucket)
+                .key(doc.getStoragePath())
+                .responseContentType("application/pdf")
+                .responseContentDisposition("inline; filename=\"" + doc.getFileName() + "\"")
+                .build();
+
+        GetObjectPresignRequest getObjectPresignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(60))
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        PresignedGetObjectRequest presignedGetObjectRequest = s3Presigner.presignGetObject(getObjectPresignRequest);
+        return presignedGetObjectRequest.url().toString();
     }
 
     public Document updateStatus(Long documentId, Document.DocumentStatus status) {

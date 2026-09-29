@@ -10,6 +10,7 @@ import { FileText, MessageSquare, Trash2, ArrowLeft, Download, EyeOff } from 'lu
 const DocumentViewer = () => {
   const { documentId } = useParams({ strict: false });
   const [doc, setDoc] = useState<any>(null);
+  const [docUrl, setDocUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
   const { toast } = useToast() as any;
@@ -20,8 +21,15 @@ const DocumentViewer = () => {
       try {
         const res = await documentApi.list();
         const found = res.data.find(d => d.id.toString() === documentId);
-        if (found) setDoc(found);
-        else {
+        if (found) {
+          setDoc(found);
+          try {
+            const urlRes = await documentApi.getUrl(found.id.toString());
+            setDocUrl(urlRes.data.url);
+          } catch (e) {
+            console.error("Failed to load PDF URL");
+          }
+        } else {
           toast('Document not found', 'error');
           navigate({ to: '/documents' });
         }
@@ -74,7 +82,7 @@ const DocumentViewer = () => {
         </div>
         <div className="flex gap-3">
           {doc.status === 'INDEXED' && (
-            <Button onClick={() => navigate({ to: `/chat/${doc.id}` })} className="flex items-center gap-2">
+            <Button onClick={() => navigate({ to: '/chat/$documentId', params: { documentId: doc.id.toString() } })} className="flex items-center gap-2">
               <MessageSquare size={16} /> Open in Chat
             </Button>
           )}
@@ -111,17 +119,19 @@ const DocumentViewer = () => {
           </div>
         </div>
 
-        {/* PDF Preview Placeholder */}
-        <div className="card" style={{ height: '70vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-bg)' }}>
-          <EyeOff size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }} />
-          <h3 style={{ fontSize: '1.25rem', fontWeight: '600', color: 'var(--color-text-secondary)' }}>PDF Preview Unavailable</h3>
-          <p style={{ color: 'var(--color-text-muted)', maxWidth: '400px', textAlign: 'center', marginTop: '0.5rem' }}>
-            In-app document rendering is currently in development. You can extract insights by opening this document in the chat interface.
-          </p>
-          {doc.status === 'INDEXED' && (
-            <Button style={{ marginTop: '1.5rem' }} onClick={() => navigate({ to: `/chat/${doc.id}` })}>
-              Go to Chat
-            </Button>
+        {/* PDF Preview */}
+        <div className="card" style={{ height: '70vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-bg)', overflow: 'hidden' }}>
+          {docUrl ? (
+            <iframe 
+              src={docUrl} 
+              title="PDF Preview"
+              style={{ width: '100%', height: '100%', border: 'none' }}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <EyeOff size={48} style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }} />
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '600', color: 'var(--color-text-secondary)' }}>PDF Preview Loading</h3>
+            </div>
           )}
         </div>
       </div>

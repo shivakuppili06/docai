@@ -50,6 +50,21 @@ public class DocumentController {
         }
     }
 
+    @GetMapping("/{id}/url")
+    public ResponseEntity<java.util.Map<String, String>> getDocumentUrl(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AuthenticatedUser user
+    ) {
+        try {
+            String url = documentService.generatePresignedUrl(id, user.userId());
+            return ResponseEntity.ok(java.util.Map.of("url", url));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @org.springframework.beans.factory.annotation.Value("${app.rag-service.api-key}")
     private String serviceApiKey;
 
