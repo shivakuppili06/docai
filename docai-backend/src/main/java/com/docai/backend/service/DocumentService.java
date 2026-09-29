@@ -113,6 +113,19 @@ public class DocumentService {
         return documentRepository.findAllAccessibleByUserId(ownerId);
     }
 
+    public Document getDocument(Long documentId, Long userId) {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));
+        // Check if user is owner or if they have it shared (simple check for now)
+        if (!doc.getOwnerId().equals(userId)) {
+            boolean hasShare = documentShareRepository.findByDocumentIdAndSharedWithId(documentId, userId).isPresent();
+            if (!hasShare) {
+                throw new SecurityException("Not authorized to view this document");
+            }
+        }
+        return doc;
+    }
+
     public Document updateStatus(Long documentId, Document.DocumentStatus status) {
         Document doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found: " + documentId));

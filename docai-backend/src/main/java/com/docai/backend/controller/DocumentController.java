@@ -36,6 +36,20 @@ public class DocumentController {
         return ResponseEntity.ok(documentService.listForUser(user.userId()));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<Document> getDocument(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AuthenticatedUser user
+    ) {
+        try {
+            return ResponseEntity.ok(documentService.getDocument(id, user.userId()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @org.springframework.beans.factory.annotation.Value("${app.rag-service.api-key}")
     private String serviceApiKey;
 

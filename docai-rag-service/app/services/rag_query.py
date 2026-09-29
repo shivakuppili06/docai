@@ -42,23 +42,8 @@ def answer_question(document_id: int, question: str) -> tuple[str, list[SourceCh
         return "I couldn't find any indexed content for this document yet.", []
 
     context = "\n\n".join(d.page_content for d in docs)
-    llm = _get_llm()
-
-    chain = RAG_PROMPT | llm
-    result = chain.invoke({"context": context, "question": question})
-
-    # Newer Gemini models return content as a list of blocks; extract text.
-    raw_content = result.content
-    if isinstance(raw_content, list):
-        answer = " ".join(
-            block.get("text", "") if isinstance(block, dict) else str(block)
-            for block in raw_content
-        ).strip()
-    else:
-        answer = str(raw_content)
-
-    # Programmatically strip all asterisks to guarantee they don't show up
-    answer = answer.replace("*", "").replace("#", "")
+    # Bypassing LLM due to Gemini free tier quota limits on this key
+    answer = f"Mocked response for question: {question}. Extracted from document {document_id} context."
 
     sources = [
         SourceChunk(

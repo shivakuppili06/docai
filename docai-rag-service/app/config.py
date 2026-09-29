@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     s3_bucket: str = os.getenv("AWS_S3_BUCKET", "")
 
     embedding_model: str = "models/gemini-embedding-001"
-    chat_model: str = "gemini-3.6-flash"
-    chat_api_version: str = "v1"
+    chat_model: str = "gemini-3.8-flash"
+    chat_api_version: str = "v1beta"
 
     chunk_size: int = 1000
     chunk_overlap: int = 150
