@@ -18,6 +18,11 @@ export default defineConfig({
   build: {
     target: 'es2020',
     chunkSizeWarningLimit: 600,
+    modulePreload: {
+      resolveDependencies: (filename, deps) => {
+        return deps.filter(dep => !dep.includes('vendor-charts'));
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {

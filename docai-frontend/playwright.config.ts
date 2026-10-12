@@ -13,6 +13,8 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests/e2e',
+  /* Exclude live-smoke tests from mocked unit/component CI unless TEST_LIVE is enabled */
+  testIgnore: process.env.TEST_LIVE ? [] : ['**/live-smoke.spec.ts'],
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

@@ -10,8 +10,8 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     container_name: docai-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -84,7 +84,7 @@ services:
       AWS_REGION: ${AWS_REGION}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - chroma_data:/app/chroma_store
     depends_on:
@@ -98,6 +98,8 @@ services:
       context: ./docai-rag-service
     container_name: docai-rag-worker
     command: python -m app.worker
+    healthcheck:
+      disable: true
     environment:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       SERVICE_API_KEY: ${SERVICE_API_KEY}

@@ -26,8 +26,8 @@ class Settings(BaseSettings):
 
     cors_origins: str = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost:5173")
 
-    embedding_model: str = "models/gemini-embedding-001"
-    chat_model: str = "gemini-3.8-flash"
+    embedding_model: str = os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-001")
+    chat_model: str = os.getenv("CHAT_MODEL", "gemini-3.5-flash-lite")
     chat_api_version: str = "v1beta"
 
     chunk_size: int = int(os.getenv("CHUNK_SIZE", "1000"))
@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     
     llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
     llm_max_retries: int = int(os.getenv("LLM_MAX_RETRIES", "5"))
-    llm_timeout: int = int(os.getenv("LLM_TIMEOUT", "10"))
+    llm_timeout: int = int(os.getenv("LLM_TIMEOUT", "30"))
     cache_ttl: int = int(os.getenv("CACHE_TTL", "3600"))
 
     class Config:

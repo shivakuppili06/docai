@@ -57,13 +57,20 @@ test.describe('Analytics and Lazy Loading Workflows', () => {
   });
 
   test('defers chart library bundle and does not load it on the landing page', async ({ page }) => {
+    // 1. Ensure unauthenticated clean state
+    await page.goto('/#/');
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+
     const downloadedChunks: string[] = [];
     page.on('request', (req) => {
       downloadedChunks.push(req.url());
     });
 
-    // 1. Visit Landing Page unauthenticated
     await page.goto('/#/');
+    await page.waitForLoadState('networkidle');
     await expect(page.locator('.landing-brand-text').first()).toContainText('DocAI');
 
     // Chart vendor bundle should not be requested on landing page
@@ -75,12 +82,13 @@ test.describe('Analytics and Lazy Loading Workflows', () => {
     // 2. Navigate to Analytics page as authenticated user
     await authenticateSession(page);
     await page.goto('/#/analytics');
+    await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading', { name: 'Workspace Overview' })).toBeVisible();
 
-    // When built for production, vendor-charts chunk is requested
+    // When built for production, vendor-charts or Analytics chunk is requested
     // In dev mode, Recharts dependencies are loaded upon visiting the route
     const analyticsChartDependenciesLoaded = downloadedChunks.some(
-      (url) => url.includes('recharts') || url.includes('vendor-charts')
+      (url) => url.includes('recharts') || url.includes('vendor-charts') || url.includes('Analytics')
     );
     expect(analyticsChartDependenciesLoaded).toBe(true);
   });

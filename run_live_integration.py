@@ -194,33 +194,54 @@ class IntegrationTestRunner:
 
         # 7. Live RAG Chat Query & SSE Streaming
         print("\n7. Testing Live RAG Question-Answering & Citations:")
-        r_ask = requests.post(
-            f"{BACKEND_URL}/api/chat/ask",
-            headers=headers_a,
-            json={"documentId": doc_id, "question": "What is the confidential release key phrase?"}
-        )
-        ask_data = r_ask.json() if r_ask.status_code == 200 else {}
-        answer = ask_data.get("answer", "")
+        answer = ""
+        r_ask = None
+        for attempt in range(3):
+            try:
+                r_ask = requests.post(
+                    f"{BACKEND_URL}/api/chat/ask",
+                    headers=headers_a,
+                    json={"documentId": doc_id, "question": "What is the confidential release key phrase?"},
+                    timeout=45
+                )
+                if r_ask.status_code == 200:
+                    ask_data = r_ask.json()
+                    answer = ask_data.get("answer", "")
+                    if answer:
+                        break
+            except Exception as e:
+                pass
+            time.sleep(2)
+
         print(f"  Generated Answer: {answer}")
         has_secret = "QuantumNebula2026" in answer or len(answer) > 10
-        self.log("RAG retrieves content and generates LLM answer", r_ask.status_code == 200 and has_secret)
+        self.log("RAG retrieves content and generates LLM answer", (r_ask is not None and r_ask.status_code == 200 and has_secret))
 
         # Test SSE Streaming endpoint
         try:
-            r_stream = requests.post(
-                f"{BACKEND_URL}/api/chat/ask/stream",
-                headers=headers_a,
-                json={"documentId": doc_id, "question": "Summarize the document purpose."},
-                stream=True,
-                timeout=15
-            )
             chunks_received = 0
-            for chunk in r_stream.iter_lines():
-                if chunk:
-                    chunks_received += 1
-                    if chunks_received >= 2:
-                        break
-            self.log("RAG SSE streaming chat (/api/chat/ask/stream) emits chunks", r_stream.status_code == 200 and chunks_received > 0)
+            for attempt in range(3):
+                try:
+                    r_stream = requests.post(
+                        f"{BACKEND_URL}/api/chat/ask/stream",
+                        headers=headers_a,
+                        json={"documentId": doc_id, "question": "Summarize the document purpose."},
+                        stream=True,
+                        timeout=45
+                    )
+                    if r_stream.status_code == 200:
+                        for chunk in r_stream.iter_lines():
+                            if chunk:
+                                chunks_received += 1
+                                if chunks_received >= 2:
+                                    break
+                        if chunks_received > 0:
+                            break
+                except Exception:
+                    pass
+                time.sleep(2)
+
+            self.log("RAG SSE streaming chat (/api/chat/ask/stream) emits chunks", chunks_received > 0)
         except Exception as e:
             self.log("RAG SSE streaming chat", False, str(e))
 
