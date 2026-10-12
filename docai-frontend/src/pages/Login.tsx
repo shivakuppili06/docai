@@ -14,9 +14,15 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { setSession } = useAuth();
-  const { toast } = useToast() as any;
+  const { user, setSession } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (user) {
+      navigate({ to: '/dashboard', replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,10 +33,12 @@ const Login = () => {
       const res = await authApi.login({ email, password });
       setSession(res.data as any);
       toast('Login successful', 'success');
-      navigate({ to: '/dashboard' });
+      navigate({ to: '/dashboard', replace: true });
+      window.location.hash = '#/dashboard';
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to login');
-      toast('Login failed', 'error');
+      const serverMsg = err.response?.data?.message || err.response?.data?.error;
+      setError(serverMsg || 'Failed to login');
+      toast(serverMsg || 'Login failed', 'error');
     } finally {
       setLoading(false);
     }

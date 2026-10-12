@@ -7,9 +7,6 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Configurable TTL: 1 hour default
-CACHE_TTL = 3600
-
 class RedisCache:
     def __init__(self):
         self.redis_client = None
@@ -26,34 +23,37 @@ class RedisCache:
             logger.error(f"Failed to connect to Redis: {e}")
             self.redis_client = None
 
-    def _generate_key(self, document_id: int, question: str) -> str:
-        return f"query_cache:{document_id}:{hash(question)}"
+    def _generate_key(self, doc_ids: list[int] | int, question: str) -> str:
+        if isinstance(doc_ids, list):
+            sorted_ids = ",".join(str(i) for i in sorted(doc_ids))
+            return f"query_cache:multi:{sorted_ids}:{hash(question)}"
+        return f"query_cache:{doc_ids}:{hash(question)}"
 
-    def get_query_result(self, document_id: int, question: str) -> Optional[Dict[str, Any]]:
+    def get_query_result(self, doc_ids: list[int] | int, question: str) -> Optional[Dict[str, Any]]:
         if not self.redis_client:
             return None
             
-        key = self._generate_key(document_id, question)
+        key = self._generate_key(doc_ids, question)
         try:
             cached_data = self.redis_client.get(key)
             if cached_data:
-                logger.info(f"[CACHE HIT] Found cached result for doc {document_id}, question: '{question}'")
+                logger.info(f"[CACHE HIT] Found cached result for doc(s) {doc_ids}, question: '{question}'")
                 return json.loads(cached_data)
             else:
-                logger.info(f"[CACHE MISS] No cached result for doc {document_id}, question: '{question}'")
+                logger.info(f"[CACHE MISS] No cached result for doc(s) {doc_ids}, question: '{question}'")
                 return None
         except Exception as e:
             logger.error(f"Redis get error: {e}")
             return None
 
-    def set_query_result(self, document_id: int, question: str, answer: str, sources: list):
+    def set_query_result(self, doc_ids: list[int] | int, question: str, answer: str, sources: list):
         if not self.redis_client:
             return
             
-        key = self._generate_key(document_id, question)
+        key = self._generate_key(doc_ids, question)
         try:
             data = json.dumps({"answer": answer, "sources": sources})
-            self.redis_client.setex(key, CACHE_TTL, data)
+            self.redis_client.setex(key, settings.cache_ttl, data)
         except Exception as e:
             logger.error(f"Redis set error: {e}")
 

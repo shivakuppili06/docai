@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { documentApi } from '../api/client';
+import { Document } from '@/types';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -9,41 +10,59 @@ import { FileText, MessageSquare, Trash2, ArrowLeft, Download, ExternalLink, Loa
 
 const DocumentViewer = () => {
   const { documentId } = useParams({ strict: false });
-  const [doc, setDoc] = useState<any>(null);
+  const [doc, setDoc] = useState<Document | null>(null);
   const [docUrl, setDocUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
-  const { toast } = useToast() as any;
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
+    let isCancelled = false;
     const fetchDoc = async () => {
+      if (!documentId) return;
       try {
-        const res = await documentApi.list();
-        const found = res.data.find(d => d.id.toString() === documentId);
-        if (found) {
-          setDoc(found);
+        let currentDoc: Document | null = null;
+        try {
+          const res = await documentApi.get(documentId);
+          currentDoc = res.data;
+        } catch {
+          // Fallback to list search if single-item endpoint is unavailable
+          const listRes = await documentApi.list(0, 100);
+          const docList = Array.isArray(listRes.data?.content) ? listRes.data.content : (Array.isArray(listRes.data) ? listRes.data : []);
+          currentDoc = docList.find(d => d.id.toString() === documentId) || null;
+        }
+
+        if (isCancelled) return;
+
+        if (currentDoc) {
+          setDoc(currentDoc);
           try {
-            const urlRes = await documentApi.getUrl(found.id.toString());
-            setDocUrl(urlRes.data.url);
-          } catch (e) {
-            console.error("Failed to load PDF URL");
+            const urlRes = await documentApi.getUrl(currentDoc.id.toString());
+            if (!isCancelled) setDocUrl(urlRes.data.url);
+          } catch {
+            // URL might not be generated yet if document is still pending
           }
         } else {
           toast('Document not found', 'error');
           navigate({ to: '/documents' });
         }
-      } catch (err) {
-        toast('Failed to load document details', 'error');
+      } catch {
+        if (!isCancelled) {
+          toast('Failed to load document details', 'error');
+        }
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     };
     fetchDoc();
+    return () => {
+      isCancelled = true;
+    };
   }, [documentId, navigate, toast]);
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this document?')) return;
+    if (!doc || !window.confirm('Are you sure you want to delete this document?')) return;
     try {
       await documentApi.delete(doc.id);
       toast('Document deleted', 'success');

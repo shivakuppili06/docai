@@ -43,9 +43,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                 Collections.emptyList()
                         );
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+                if (userId != null) {
+                    org.slf4j.MDC.put("userId", String.valueOf(userId));
+                }
             }
         }
 
-        filterChain.doFilter(request, response);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            org.slf4j.MDC.remove("userId");
+        }
     }
 }

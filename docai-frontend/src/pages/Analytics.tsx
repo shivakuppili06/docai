@@ -5,24 +5,37 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { PieChart as PieChartIcon, BarChart2, TrendingUp, AlertCircle, FileText, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
+interface AnalyticsStats {
+  total: number;
+  indexed: number;
+  failed: number;
+  processing: number;
+  trendData: Array<{ date: string; count: number }>;
+}
+
 const Analytics = () => {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<AnalyticsStats | null>(null);
   const [loading, setLoading] = useState(true);
   
-  const { toast } = useToast() as any;
+  const { toast } = useToast();
+
+  const pieData = React.useMemo(() => [
+    { name: 'Indexed', value: stats?.indexed || 0, color: '#10b981' },
+    { name: 'Processing', value: stats?.processing || 0, color: '#f59e0b' },
+    { name: 'Failed', value: stats?.failed || 0, color: '#ef4444' }
+  ], [stats?.indexed, stats?.processing, stats?.failed]);
 
   useEffect(() => {
+    let isCancelled = false;
     const fetchStats = async () => {
       try {
-        const res = await documentApi.list();
-        const docs = res.data;
-        setStats({
-          total: docs.length,
-          indexed: docs.filter(d => d.status === 'INDEXED').length,
-          failed: docs.filter(d => d.status === 'FAILED').length,
-          processing: docs.filter(d => d.status === 'PROCESSING' || d.status === 'PENDING').length
-        });
+        const res = await documentApi.list(0, 100);
+        const docs = Array.isArray(res.data?.content) 
+          ? res.data.content 
+          : (Array.isArray(res.data) ? res.data : []);
         
+        if (isCancelled) return;
+
         // Process data for charts
         const dateMap: Record<string, number> = {};
         docs.forEach(d => {
@@ -31,15 +44,24 @@ const Analytics = () => {
         });
         
         const trendData = Object.keys(dateMap).map(k => ({ date: k, count: dateMap[k] }));
-        
-        setStats(prev => ({ ...prev, trendData }));
+
+        setStats({
+          total: docs.length,
+          indexed: docs.filter(d => d.status === 'INDEXED').length,
+          failed: docs.filter(d => d.status === 'FAILED').length,
+          processing: docs.filter(d => d.status === 'PROCESSING' || d.status === 'PENDING').length,
+          trendData,
+        });
       } catch (err) {
-        toast('Failed to load analytics', 'error');
+        if (!isCancelled) toast('Failed to load analytics', 'error');
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     };
     fetchStats();
+    return () => {
+      isCancelled = true;
+    };
   }, [toast]);
 
   return (
@@ -129,7 +151,7 @@ const Analytics = () => {
             <h3 className="section-title" style={{ marginBottom: 0 }}>System Usage</h3>
           </div>
           <div style={{ flex: 1, backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border-color)', minHeight: '200px' }}>
-            {stats?.trendData?.length > 0 ? (
+            {stats && stats.trendData.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={stats.trendData}>
                   <XAxis dataKey="date" />
@@ -156,28 +178,18 @@ const Analytics = () => {
             <h3 className="section-title" style={{ marginBottom: 0 }}>Distribution</h3>
           </div>
           <div style={{ flex: 1, backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)', minHeight: '200px' }}>
-             <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
                   <Pie
-                    data={[
-                      { name: 'Indexed', value: stats?.indexed || 0, color: '#10b981' },
-                      { name: 'Processing', value: stats?.processing || 0, color: '#f59e0b' },
-                      { name: 'Failed', value: stats?.failed || 0, color: '#ef4444' }
-                    ]}
+                    data={pieData}
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
                     dataKey="value"
                   >
-                    {
-                      [
-                        { name: 'Indexed', value: stats?.indexed || 0, color: '#10b981' },
-                        { name: 'Processing', value: stats?.processing || 0, color: '#f59e0b' },
-                        { name: 'Failed', value: stats?.failed || 0, color: '#ef4444' }
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))
-                    }
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
                   </Pie>
                   <RechartsTooltip />
                   <Legend />

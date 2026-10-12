@@ -4,10 +4,9 @@ import boto3
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_chroma import Chroma
-import chromadb
 
 from app.config import settings
+from app.services.vector_store import get_vector_store
 
 
 def _get_embeddings():
@@ -25,35 +24,18 @@ def _extract_text(storage_path: str) -> str:
         return f.read()
 
 
-def _collection_name(document_id: int) -> str:
-    return f"document_{document_id}"
-
-
-def _clear_existing_collection(document_id: int):
-    """
-    Deletes any pre-existing Chroma collection for this document_id 
-    before re-ingesting. Makes ingestion idempotent — critical because 
-    document IDs can get reused (e.g. after a Postgres reset), and 
-    without this, old chunks silently mix with new ones.
-    """
-    client = chromadb.PersistentClient(path=settings.chroma_persist_dir)
-    name = _collection_name(document_id)
-    try:
-        client.delete_collection(name=name)
-    except Exception:
-        pass  # collection didn't exist yet — nothing to clear
-
 def delete_document_vectors(document_id: int):
     """
-    Public method to delete a document's vector collection from ChromaDB.
+    Public method to delete a document's vector collection.
     """
-    _clear_existing_collection(document_id)
+    store = get_vector_store()
+    store.clear_document(document_id)
 
 
 def ingest_document(document_id: int, storage_path: str) -> int:
     """
     Extracts text, chunks it, embeds each chunk via Gemini, and stores
-    vectors in a per-document Chroma collection. Returns chunk count.
+    vectors in a per-document vector collection. Returns chunk count.
     """
     s3_client = boto3.client(
         's3',
@@ -84,27 +66,17 @@ def ingest_document(document_id: int, storage_path: str) -> int:
     )
     chunks = splitter.split_text(text)
 
-    _clear_existing_collection(document_id)
+    store = get_vector_store()
+    store.clear_document(document_id)
 
     embeddings = _get_embeddings()
-
-    vectordb = Chroma(
-        collection_name=_collection_name(document_id),
-        embedding_function=embeddings,
-        persist_directory=settings.chroma_persist_dir,
-    )
-
     metadatas = [{"chunk_index": i, "document_id": document_id} for i in range(len(chunks))]
-    vectordb.add_texts(texts=chunks, metadatas=metadatas)
+    store.add_texts(document_id, chunks, metadatas, embeddings)
 
     return len(chunks)
 
 
-def get_retriever(document_id: int):
+def get_retriever(document_id: int, k: int | None = None):
     embeddings = _get_embeddings()
-    vectordb = Chroma(
-        collection_name=_collection_name(document_id),
-        embedding_function=embeddings,
-        persist_directory=settings.chroma_persist_dir,
-    )
-    return vectordb.as_retriever(search_kwargs={"k": settings.retrieval_k})
+    store = get_vector_store()
+    return store.get_retriever(document_id, embeddings, k=k)

@@ -19,6 +19,7 @@ public class DocumentShare {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shared_with_user_id", nullable = false)
     @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "passwordHash"})
     private User sharedWith;
 
     @Enumerated(EnumType.STRING)

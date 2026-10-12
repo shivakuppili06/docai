@@ -18,9 +18,6 @@ describe('Button', () => {
   it('applies variant classes correctly', () => {
     render(<Button variant="danger">Delete</Button>);
     const button = screen.getByText('Delete');
-    // Using simple checks for now since we used inline styles for testing
-    // or class names depending on the actual implementation. 
-    // In our implementation, variant applies inline styles.
-    expect(button.style.backgroundColor).toContain('var(--color-danger)');
+    expect(button.className).toContain('bg-destructive');
   });
 });

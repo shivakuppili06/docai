@@ -16,9 +16,15 @@ const Register = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { setSession } = useAuth();
-  const { toast } = useToast() as any;
+  const { user, setSession } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (user) {
+      navigate({ to: '/dashboard', replace: true });
+    }
+  }, [user, navigate]);
 
   // Basic heuristic
   const getPasswordStrength = () => {
@@ -49,10 +55,12 @@ const Register = () => {
       const res = await authApi.register({ email, password, fullName });
       setSession(res.data as any);
       toast('Registration successful!', 'success');
-      navigate({ to: '/dashboard' });
+      navigate({ to: '/dashboard', replace: true });
+      window.location.hash = '#/dashboard';
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to register');
-      toast('Registration failed', 'error');
+      const serverMsg = err.response?.data?.message || err.response?.data?.error;
+      setError(serverMsg || 'Failed to register');
+      toast(serverMsg || 'Registration failed', 'error');
     } finally {
       setLoading(false);
     }

@@ -6,36 +6,38 @@ import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { DocumentRow } from '../components/DocumentRow';
+import { Document } from '@/types';
 import { Search, Loader2 } from 'lucide-react';
 
 const Documents = () => {
-  const { documents, loading, deleteDocument } = useDocuments(3000);
+  const { documents, loading, deleteDocument, page, setPage, totalPages } = useDocuments(3000);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [documentToDelete, setDocumentToDelete] = useState<any>(null);
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
 
   const filteredDocs = useMemo(() => {
-    if (!debouncedSearch) return documents;
+    const list = Array.isArray(documents) ? documents : [];
+    if (!debouncedSearch) return list;
     const lowerSearch = debouncedSearch.toLowerCase();
-    return documents.filter(d => d.fileName.toLowerCase().includes(lowerSearch));
+    return list.filter(d => d.fileName.toLowerCase().includes(lowerSearch));
   }, [documents, debouncedSearch]);
 
-  const confirmDelete = (doc: any) => {
+  const confirmDelete = React.useCallback((doc: Document) => {
     setDocumentToDelete(doc);
     setDeleteModalOpen(true);
-  };
+  }, []);
 
-  const handleDelete = async () => {
+  const handleDelete = React.useCallback(async () => {
     if (!documentToDelete) return;
     const success = await deleteDocument(documentToDelete.id);
     if (success) {
       setDeleteModalOpen(false);
       setDocumentToDelete(null);
     }
-  };
+  }, [documentToDelete, deleteDocument]);
 
   return (
     <div className="fade-in">
@@ -92,6 +94,27 @@ const Documents = () => {
                 ))}
               </tbody>
             </table>
+            
+            {/* Pagination Controls */}
+            {!debouncedSearch && totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderTop: '1px solid var(--border-color)' }}>
+                <Button 
+                  variant="secondary" 
+                  disabled={page === 0}
+                  onClick={() => setPage(page - 1)}
+                >
+                  Previous
+                </Button>
+                <span>Page {page + 1} of {totalPages}</span>
+                <Button 
+                  variant="secondary" 
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage(page + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

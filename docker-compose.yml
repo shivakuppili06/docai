@@ -5,6 +5,7 @@ services:
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     container_name: docai-rabbitmq
+    command: /bin/sh -c "rabbitmq-plugins enable rabbitmq_prometheus rabbitmq_management; rabbitmq-server"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
@@ -126,7 +127,7 @@ services:
     environment:
       VITE_API_BASE_URL: http://localhost:8080
     ports:
-      - "5173:5173"
+      - "5173:80"
     depends_on:
       - docai-backend
 

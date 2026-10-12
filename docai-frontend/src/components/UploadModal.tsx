@@ -1,23 +1,30 @@
 import React, { useState } from 'react';
-import PropTypes from 'prop-types';
 import { UploadCloud, Loader2 } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
+import { AxiosProgressEvent } from 'axios';
 
-export const UploadModal = ({ isOpen, onClose, onUpload }: any) => {
-  const [file, setFile] = useState<any>(null);
+export interface UploadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onUpload: (file: File, onProgress?: (progressEvent: AxiosProgressEvent) => void) => Promise<boolean>;
+}
+
+export const UploadModal = ({ isOpen, onClose, onUpload }: UploadModalProps) => {
+  const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const handleUpload = async (e) => {
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
 
     setUploading(true);
     setProgress(0);
 
-    const success = await onUpload(file, (progressEvent) => {
-      const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+    const success = await onUpload(file, (progressEvent: AxiosProgressEvent) => {
+      const total = progressEvent.total || 1;
+      const percentCompleted = Math.round((progressEvent.loaded * 100) / total);
       setProgress(percentCompleted);
     });
 
@@ -84,10 +91,4 @@ export const UploadModal = ({ isOpen, onClose, onUpload }: any) => {
       )}
     </Modal>
   );
-};
-
-UploadModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  onUpload: PropTypes.func.isRequired
 };

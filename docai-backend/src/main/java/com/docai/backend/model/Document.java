@@ -33,10 +33,11 @@ public class Document {
     private Instant uploadedAt = Instant.now();
 
     @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 20)
     private List<DocumentShare> shares = new ArrayList<>();
 
     public enum DocumentStatus {
-        PENDING, PROCESSING, INDEXED, FAILED
+        PENDING, PROCESSING, INDEXED, FAILED, DELETING, DELETE_FAILED
     }
 
     public Document() {

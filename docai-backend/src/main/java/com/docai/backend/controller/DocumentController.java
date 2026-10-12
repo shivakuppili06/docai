@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/documents")
@@ -32,8 +31,15 @@ public class DocumentController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Document>> list(@AuthenticationPrincipal AuthenticatedUser user) {
-        return ResponseEntity.ok(documentService.listForUser(user.userId()));
+    public ResponseEntity<org.springframework.data.domain.Page<Document>> list(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "uploadedAt") String sort,
+            @RequestParam(defaultValue = "DESC") String direction
+    ) {
+        if (size > 100) size = 100;
+        return ResponseEntity.ok(documentService.listForUser(user.userId(), page, size, sort, direction));
     }
 
     @GetMapping("/{id}")
@@ -65,19 +71,12 @@ public class DocumentController {
         }
     }
 
-    @org.springframework.beans.factory.annotation.Value("${app.rag-service.api-key}")
-    private String serviceApiKey;
-
     // Internal callback used by the Python RAG worker to report ingestion status.
     @PatchMapping("/{id}/status")
     public ResponseEntity<Document> updateStatus(
             @PathVariable Long id,
-            @Valid @RequestBody StatusUpdateRequest req,
-            @RequestHeader(value = "X-Service-Token", required = false) String serviceToken
+            @Valid @RequestBody StatusUpdateRequest req
     ) {
-        if (serviceToken == null || !serviceToken.equals(serviceApiKey)) {
-            return ResponseEntity.status(401).build();
-        }
         return ResponseEntity.ok(documentService.updateStatus(id, req.status()));
     }
 

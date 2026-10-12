@@ -23,9 +23,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final com.docai.backend.security.ServiceAuthFilter serviceAuthFilter;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, com.docai.backend.security.ServiceAuthFilter serviceAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.serviceAuthFilter = serviceAuthFilter;
     }
 
     @Bean
@@ -46,24 +48,28 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/actuator/health").permitAll()
-                // TODO: replace with a shared-secret/service-auth check before deploying —
-                // currently open so the Python worker can report status without a user JWT.
-                .requestMatchers("/api/documents/*/status").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
                 .requestMatchers("/error").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.PATCH, "/api/documents/{id}/status").hasAuthority("ROLE_SERVICE")
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .exceptionHandling(ex -> ex.authenticationEntryPoint(new com.docai.backend.security.JwtAuthenticationEntryPoint(new com.fasterxml.jackson.databind.ObjectMapper())))
+            .addFilterBefore(serviceAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(jwtAuthFilter, com.docai.backend.security.ServiceAuthFilter.class);
 
         return http.build();
     }
 
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:http://localhost:5173}")
+    private List<String> allowedOrigins;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Service-Token", "Accept", "X-Correlation-ID", "X-Request-ID", "Origin"));
+        config.setExposedHeaders(List.of("X-Correlation-ID", "X-Request-ID"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

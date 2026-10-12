@@ -3,13 +3,19 @@ from typing import List, Optional
 
 
 class QueryRequest(BaseModel):
-    document_id: int
+    document_id: Optional[int] = None
+    document_ids: Optional[List[int]] = None
     question: str
 
 
 class SourceChunk(BaseModel):
     chunk_index: int
     text_snippet: str
+    document_id: Optional[int] = None
+    document_name: Optional[str] = None
+
+    class Config:
+        extra = "ignore"
 
 
 class QueryResponse(BaseModel):

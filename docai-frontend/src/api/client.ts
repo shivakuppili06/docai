@@ -1,5 +1,5 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosProgressEvent, AxiosError } from "axios";
-import { AuthResponse, Document, UploadResponse, ChatMessage } from "@/types";
+import { AuthResponse, Document, UploadResponse, ChatMessage, PaginatedResponse, LoginRequest, RegisterRequest } from "@/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
@@ -10,23 +10,30 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // Generate a correlation ID for tracing
+  config.headers['X-Correlation-ID'] = crypto.randomUUID();
   return config;
 });
 
 api.interceptors.response.use(
   (res) => res,
   (err: AxiosError) => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 || err.response?.status === 403) {
       localStorage.removeItem("docai_token");
-      window.location.href = "/login";
+      localStorage.removeItem("docai_email");
+      localStorage.removeItem("docai_fullName");
+      if (window.location.hash !== "#/login" && window.location.pathname !== "/login") {
+        window.location.href = "/#/login";
+        window.location.reload();
+      }
     }
     return Promise.reject(err);
   }
 );
 
 export const authApi = {
-  register: (data: any) => api.post<AuthResponse>("/api/auth/register", data),
-  login: (data: any) => api.post<AuthResponse>("/api/auth/login", data),
+  register: (data: RegisterRequest) => api.post<AuthResponse>("/api/auth/register", data),
+  login: (data: LoginRequest) => api.post<AuthResponse>("/api/auth/login", data),
 };
 
 export const documentApi = {
@@ -37,7 +44,9 @@ export const documentApi = {
       onUploadProgress,
     });
   },
-  list: () => api.get<Document[]>("/api/documents"),
+  list: (page = 0, size = 10, sort = "uploadedAt", direction = "DESC") => 
+    api.get<PaginatedResponse<Document>>("/api/documents", { params: { page, size, sort, direction } }),
+  get: (id: string) => api.get<Document>(`/api/documents/${id}`),
   delete: (id: string) => api.delete(`/api/documents/${id}`),
   getUrl: (id: string) => api.get<{url: string}>(`/api/documents/${id}/url`),
   // Share a document with another user (VIEWER or EDITOR role)
@@ -50,10 +59,17 @@ export interface AskResponse {
   question: string;
   answer: string;
   sourceCitations?: string;
+  /** true when the answer is an error message, not a real LLM response */
+  isError?: boolean;
 }
 
 export const chatApi = {
-  ask: (documentId: string, question: string) => api.post<AskResponse>("/api/chat/ask", { documentId, question }),
+  ask: (documentId: string, question: string, documentIds?: string[]) => 
+    api.post<AskResponse>("/api/chat/ask", { 
+      documentId, 
+      documentIds: documentIds && documentIds.length > 0 ? documentIds : undefined,
+      question 
+    }),
   history: (documentId: string) => api.get<AskResponse[]>(`/api/chat/history/${documentId}`),
   askStream: async (
     documentId: string, 
@@ -61,7 +77,8 @@ export const chatApi = {
     onChunk: (text: string) => void, 
     onSources: (sources: any[]) => void,
     onComplete: () => void,
-    onError: (err: any) => void
+    onError: (err: string | Error) => void,
+    documentIds?: string[]
   ) => {
     const token = localStorage.getItem('docai_token');
     try {
@@ -69,9 +86,14 @@ export const chatApi = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Correlation-ID': crypto.randomUUID(),
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ documentId, question })
+        body: JSON.stringify({ 
+          documentId, 
+          documentIds: documentIds && documentIds.length > 0 ? documentIds : undefined,
+          question 
+        })
       });
 
       if (!response.ok) {
@@ -105,7 +127,13 @@ export const chatApi = {
                 onSources(data.sources);
               }
               if (data.error) {
-                onError(new Error(data.error));
+                // Server yielded a structured error event (e.g. Gemini rate-limit).
+                // Surface it as a visible error in the message bubble, not as text.
+                onError(data.error as string);
+                // No need to read further — close the stream.
+                reader.cancel();
+                onComplete();
+                return;
               }
             } catch (e) {
               // parsing error, ignore partial chunk
@@ -115,7 +143,7 @@ export const chatApi = {
       }
       onComplete();
     } catch (err) {
-      onError(err);
+      onError(err instanceof Error ? err : new Error(String(err)));
     }
   }
 };

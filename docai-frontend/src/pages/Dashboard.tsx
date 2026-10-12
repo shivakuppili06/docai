@@ -10,13 +10,14 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { UploadCloud, FileText, ArrowRight, Loader2, CheckCircle, Clock } from 'lucide-react';
 
 const Dashboard = () => {
-  const { documents, loading, uploadDocument } = useDocuments(3000); // Polling every 3s
+  const { documents, loading, uploadDocument, totalElements } = useDocuments(3000); // Polling every 3s
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-  const totalCount = documents.length;
-  const indexedCount = documents.filter(d => d.status === 'INDEXED').length;
-  const processingCount = documents.filter(d => d.status === 'PENDING' || d.status === 'PROCESSING').length;
-  const recentDocs = documents.slice(0, 5);
+  const safeDocs = Array.isArray(documents) ? documents : [];
+  const totalCount = totalElements ?? safeDocs.length;
+  const indexedCount = safeDocs.filter(d => d.status === 'INDEXED').length;
+  const processingCount = safeDocs.filter(d => d.status === 'PENDING' || d.status === 'PROCESSING').length;
+  const recentDocs = safeDocs.slice(0, 5);
 
   return (
     <div className="fade-in">

@@ -15,6 +15,8 @@ interface ChatState {
   removeMessage: (id: string) => void;
   updateMessageText: (id: string, text: string) => void;
   updateMessageSources: (id: string, sources: string) => void;
+  /** Marks a message bubble as an error (shown distinctly from real answers). */
+  updateMessageError: (id: string, errorText: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -53,5 +55,11 @@ export const useChatStore = create<ChatState>((set) => ({
     history: state.history.map((msg) => 
       msg.id === id ? { ...msg, sourceCitations: sources } : msg
     )
-  }))
+  })),
+
+  updateMessageError: (id, errorText) => set((state) => ({
+    history: state.history.map((msg) =>
+      msg.id === id ? { ...msg, answer: errorText, isError: true } : msg
+    )
+  })),
 }));

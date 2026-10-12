@@ -27,10 +27,16 @@ public class RagQueryService {
             .version(java.net.http.HttpClient.Version.HTTP_1_1)
             .build();
 
-    public ChatMessage ask(Long userId, Long documentId, String question) {
+    public ChatMessage ask(Long userId, Long primaryDocumentId, java.util.List<Long> documentIds, String question) {
         try {
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            byte[] jsonBytes = mapper.writeValueAsBytes(Map.of("document_id", documentId, "question", question));
+            Map<String, Object> reqBody;
+            if (documentIds != null && documentIds.size() > 1) {
+                reqBody = Map.of("document_ids", documentIds, "question", question);
+            } else {
+                reqBody = Map.of("document_id", primaryDocumentId, "question", question);
+            }
+            byte[] jsonBytes = mapper.writeValueAsBytes(reqBody);
 
             java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
                     .uri(java.net.URI.create(ragServiceBaseUrl + "/query"))
@@ -55,7 +61,7 @@ public class RagQueryService {
 
             ChatMessage msg = ChatMessage.builder()
                     .userId(userId)
-                    .documentId(documentId)
+                    .documentId(primaryDocumentId)
                     .question(question)
                     .answer(answer)
                     .sourceCitations(citations)
@@ -67,64 +73,81 @@ public class RagQueryService {
         }
     }
 
-    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter askStream(Long userId, Long documentId, String question) {
-        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(60000L);
-        new Thread(() -> {
-            try {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                byte[] jsonBytes = mapper.writeValueAsBytes(Map.of("document_id", documentId, "question", question));
-
-                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                        .uri(java.net.URI.create(ragServiceBaseUrl + "/query/stream"))
-                        .header("Content-Type", "application/json")
-                        .header("X-Service-Token", serviceApiKey)
-                        .POST(java.net.http.HttpRequest.BodyPublishers.ofByteArray(jsonBytes))
-                        .build();
-
-                httpClient.sendAsync(request, java.net.http.HttpResponse.BodyHandlers.ofLines())
-                    .thenAccept(response -> {
-                        StringBuilder fullAnswer = new StringBuilder();
-                        String[] finalSources = new String[]{"[]"};
-                        
-                        response.body().forEach(line -> {
-                            if(line == null || line.trim().isEmpty()) return;
-                            try {
-                                Map<String, Object> data = mapper.readValue(line, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
-                                if(data.containsKey("text")) {
-                                    String t = (String) data.get("text");
-                                    fullAnswer.append(t);
-                                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().data(line));
-                                }
-                                if(data.containsKey("sources")) {
-                                    finalSources[0] = mapper.writeValueAsString(data.get("sources"));
-                                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().data(line));
-                                }
-                                if(data.containsKey("error")) {
-                                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().data(line));
-                                }
-                            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-                            } catch (java.io.IOException e) {
-                            }
-                        });
-                        
-                        ChatMessage msg = ChatMessage.builder()
-                            .userId(userId)
-                            .documentId(documentId)
-                            .question(question)
-                            .answer(fullAnswer.toString())
-                            .sourceCitations(finalSources[0])
-                            .build();
-                        chatMessageRepository.save(msg);
-                        
-                        emitter.complete();
-                    }).exceptionally(e -> {
-                        emitter.completeWithError(e);
-                        return null;
-                    });
-            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-                emitter.completeWithError(e);
+    @org.springframework.scheduling.annotation.Async("sseTaskExecutor")
+    public void askStream(Long userId, Long primaryDocumentId, java.util.List<Long> documentIds, String question, org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter) {
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<String, Object> reqBody;
+            if (documentIds != null && documentIds.size() > 1) {
+                reqBody = Map.of("document_ids", documentIds, "question", question);
+            } else {
+                reqBody = Map.of("document_id", primaryDocumentId, "question", question);
             }
-        }).start();
-        return emitter;
+            byte[] jsonBytes = mapper.writeValueAsBytes(reqBody);
+
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(ragServiceBaseUrl + "/query/stream"))
+                    .header("Content-Type", "application/json")
+                    .header("X-Service-Token", serviceApiKey)
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofByteArray(jsonBytes))
+                    .build();
+
+            java.util.concurrent.CompletableFuture<java.net.http.HttpResponse<java.util.stream.Stream<String>>> future = 
+                httpClient.sendAsync(request, java.net.http.HttpResponse.BodyHandlers.ofLines());
+
+            emitter.onTimeout(() -> {
+                future.cancel(true);
+                emitter.complete();
+            });
+            emitter.onCompletion(() -> future.cancel(true));
+            emitter.onError(e -> future.cancel(true));
+
+            future.thenAccept(response -> {
+                StringBuilder fullAnswer = new StringBuilder();
+                String[] finalSources = new String[]{"[]"};
+                
+                try {
+                    response.body().forEach(line -> {
+                        if(line == null || line.trim().isEmpty()) return;
+                        try {
+                            Map<String, Object> data = mapper.readValue(line, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                            if(data.containsKey("text")) {
+                                String t = (String) data.get("text");
+                                fullAnswer.append(t);
+                                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().data(line));
+                            }
+                            if(data.containsKey("sources")) {
+                                finalSources[0] = mapper.writeValueAsString(data.get("sources"));
+                                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().data(line));
+                            }
+                            if(data.containsKey("error")) {
+                                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().data(line));
+                            }
+                        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                        } catch (java.io.IOException e) {
+                            throw new java.io.UncheckedIOException(e);
+                        }
+                    });
+                    
+                    ChatMessage msg = ChatMessage.builder()
+                        .userId(userId)
+                        .documentId(primaryDocumentId)
+                        .question(question)
+                        .answer(fullAnswer.toString())
+                        .sourceCitations(finalSources[0])
+                        .build();
+                    chatMessageRepository.save(msg);
+                    
+                    emitter.complete();
+                } catch (Exception ex) {
+                    emitter.completeWithError(ex);
+                }
+            }).exceptionally(e -> {
+                emitter.completeWithError(e);
+                return null;
+            });
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            emitter.completeWithError(e);
+        }
     }
 }

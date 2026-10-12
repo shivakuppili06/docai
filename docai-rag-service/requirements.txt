@@ -14,4 +14,7 @@ python-multipart
 httpx
 boto3==1.35.36
 redis
-
+python-json-logger
+prometheus-fastapi-instrumentator
+pytest>=8.0.0
+pytest-mock>=3.14.0

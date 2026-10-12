@@ -16,6 +16,7 @@ import { Loader2 } from "lucide-react";
 import { Landing } from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import NotFound from "./pages/NotFound";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Documents = lazy(() => import("./pages/Documents"));
@@ -53,7 +54,8 @@ const SuspenseFallback = () => (
 
 // TanStack Router Setup
 const rootRoute = createRootRoute({
-  component: AppLayout
+  component: AppLayout,
+  notFoundComponent: NotFound,
 });
 
 const indexRoute = createRoute({
@@ -145,6 +147,12 @@ const routeTree = rootRoute.addChildren([
   analyticsRoute,
   settingsRoute,
 ]);
+
+// Normalize legacy or direct path navigation to hash routes (e.g. /login -> /#/login)
+if (typeof window !== 'undefined' && window.location.pathname !== '/' && window.location.pathname !== '') {
+  const targetHash = window.location.hash || '#' + window.location.pathname;
+  window.history.replaceState(null, '', '/' + targetHash);
+}
 
 const hashHistory = createHashHistory();
 const router = createRouter({ routeTree, history: hashHistory });

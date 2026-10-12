@@ -12,9 +12,10 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
+    const token = localStorage.getItem("docai_token");
     const email = localStorage.getItem("docai_email");
     const fullName = localStorage.getItem("docai_fullName");
-    return email ? { id: "", email, fullName: fullName || "" } : null;
+    return token && email ? { id: "", email, fullName: fullName || "" } : null;
   });
 
   // Store session data after a successful login/register API call.

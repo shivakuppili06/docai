@@ -11,12 +11,13 @@ export interface DocumentRowProps {
   isCompact?: boolean;
 }
 
-export const DocumentRow = ({ doc, onDeleteClick, isCompact = false }: DocumentRowProps) => {
+export const DocumentRow = React.memo(({ doc, onDeleteClick, isCompact = false }: DocumentRowProps) => {
   const navigate = useNavigate();
 
   if (isCompact) {
     return (
       <div 
+        data-testid="document-row"
         onClick={() => navigate({ to: '/documents/$documentId', params: { documentId: doc.id.toString() } })}
         className="document-row-compact"
         style={{ 
@@ -51,6 +52,7 @@ export const DocumentRow = ({ doc, onDeleteClick, isCompact = false }: DocumentR
 
   return (
     <tr 
+      data-testid="document-row"
       onClick={() => navigate({ to: '/documents/$documentId', params: { documentId: doc.id.toString() } })}
       style={{ cursor: 'pointer' }}
     >
@@ -75,6 +77,7 @@ export const DocumentRow = ({ doc, onDeleteClick, isCompact = false }: DocumentR
               onClick={(e) => { e.stopPropagation(); navigate({ to: '/chat/$documentId', params: { documentId: doc.id.toString() } }); }}
               title="Ask questions"
               aria-label="Ask questions"
+              data-testid="chat-document-btn"
             >
               <MessageSquare size={18} />
             </Button>
@@ -86,6 +89,7 @@ export const DocumentRow = ({ doc, onDeleteClick, isCompact = false }: DocumentR
             onClick={(e) => { e.stopPropagation(); onDeleteClick && onDeleteClick(doc); }}
             title="Delete document"
             aria-label="Delete document"
+            data-testid="delete-document-btn"
           >
             <Trash2 size={18} />
           </Button>
@@ -93,4 +97,4 @@ export const DocumentRow = ({ doc, onDeleteClick, isCompact = false }: DocumentR
       </td>
     </tr>
   );
-};
+});
