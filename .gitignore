@@ -13,3 +13,9 @@ __pycache__/
 *.iml
 .venv/
 venv/
+*.log
+*_logs.txt
+playwright-report/
+test-results/
+vite.config.ts.timestamp-*
+.pytest_cache/
